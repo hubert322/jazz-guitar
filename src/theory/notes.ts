@@ -48,14 +48,8 @@ export function transpose(n: Note, iv: Interval): Note {
   return { letter, acc };
 }
 
-/**
- * The answer grid only offers ♭, ♮ and ♯. When the strict spelling is a double accidental
- * (the ♭♭7 of C°7 is B♭♭), any grid note with the same pitch is accepted.
- */
-export function accepts(expected: Note, given: Note): boolean {
-  if (sameNote(expected, given)) return true;
-  return Math.abs(expected.acc) === 2 && pc(expected) === pc(given);
-}
+/** On the guitar only the pitch matters, so any spelling of it counts (E for F♭, A for B♭♭). */
+export const accepts = (expected: Note, given: Note) => pc(expected) === pc(given);
 
 /** Every note on the 3×7 answer grid, rows ♯ / ♮ / ♭. */
 export const GRID_ROWS: Note[][] = [1, 0, -1].map((acc) =>

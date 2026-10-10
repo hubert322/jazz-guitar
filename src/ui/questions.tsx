@@ -3,7 +3,7 @@ import type { Fact } from '../drills/facts';
 import { type Chord, chordName, chordTones, type Degree, DEGREE_LABEL, type Quality, QUALITY_DEGREES, QUALITY_SYMBOL, TONE_ORDINAL } from '../theory/chords';
 import { fretsFor, pitchAt } from '../theory/fretboard';
 import { diatonicChord, diatonicChords, keyName, ROMAN, twoFiveOne } from '../theory/keys';
-import { accepts, GRID_ROWS, type Note, noteName, pc, pitchNames, sameNote } from '../theory/notes';
+import { accepts, GRID_ROWS, type Note, noteName, pc, pitchNames } from '../theory/notes';
 import { buzz } from './feedback';
 import { type Dot, Fretboard } from './Fretboard';
 import { DegreePad, type Mark, NoteGrid, QualityPad, RomanPad } from './pads';
@@ -48,7 +48,7 @@ function Prompt({ kicker, main, ask, long }: { kicker?: ReactNode; main: ReactNo
   );
 }
 
-/** Grid labels that count as the expected note (a double flat maps to its enharmonic). */
+/** Grid labels that count as the expected note: every spelling of its pitch. */
 function gridMatches(expected: Note): string[] {
   return GRID_ROWS.flat()
     .filter((g) => accepts(expected, g))
@@ -194,7 +194,7 @@ function DiatonicQuestion({ fact, revealed, onAnswer }: QuestionProps<FactOf<'di
   const tryFinish = (r?: Note, q?: Quality) => {
     if (!r || !q || done.current) return;
     done.current = true;
-    onAnswer(sameNote(r, expected.root) && q === expected.quality);
+    onAnswer(accepts(expected.root, r) && q === expected.quality);
   };
   const pickRoot = (n: Note) => {
     if (done.current) return;
@@ -208,7 +208,7 @@ function DiatonicQuestion({ fact, revealed, onAnswer }: QuestionProps<FactOf<'di
   };
 
   const rootMarks: Record<string, Mark> = revealed
-    ? { ...(root && !sameNote(root, expected.root) ? { [noteName(root)]: 'wrong' } : {}), [noteName(expected.root)]: 'right' }
+    ? marksFor(true, gridMatches(expected.root), root && !accepts(expected.root, root) ? noteName(root) : undefined)
     : root
       ? { [noteName(root)]: 'picked' }
       : {};
@@ -260,9 +260,9 @@ function CadenceQuestion({ fact, revealed, onAnswer }: QuestionProps<FactOf<'cad
   const pick = (n: Note) => {
     if (picked) return;
     setPicked(n);
-    onAnswer(sameNote(n, fact.tonic));
+    onAnswer(accepts(fact.tonic, n));
   };
-  const pickedLabel = picked && !sameNote(picked, fact.tonic) ? noteName(picked) : undefined;
+  const pickedLabel = picked && !accepts(fact.tonic, picked) ? noteName(picked) : undefined;
   return (
     <>
       <div className="stage">
@@ -274,7 +274,7 @@ function CadenceQuestion({ fact, revealed, onAnswer }: QuestionProps<FactOf<'cad
         )}
       </div>
       <div className="pad">
-        <NoteGrid onPick={pick} disabled={revealed} marks={marksFor(revealed, [noteName(fact.tonic)], pickedLabel)} />
+        <NoteGrid onPick={pick} disabled={revealed} marks={marksFor(revealed, gridMatches(fact.tonic), pickedLabel)} />
       </div>
     </>
   );

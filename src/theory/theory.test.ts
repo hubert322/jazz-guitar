@@ -69,9 +69,11 @@ describe('chord pool', () => {
 });
 
 describe('answer checking', () => {
-  it('accepts an enharmonic only for double accidentals', () => {
+  it('accepts any spelling of the right pitch', () => {
     expect(accepts(note('Bbb'), note('A'))).toBe(true);
-    expect(accepts(note('Gb'), note('F#'))).toBe(false);
+    expect(accepts(note('Fb'), note('E'))).toBe(true);
+    expect(accepts(note('Gb'), note('F#'))).toBe(true);
+    expect(accepts(note('Fb'), note('F'))).toBe(false);
     expect(sameNote(note('Eb'), note('E♭'))).toBe(true);
   });
 });
