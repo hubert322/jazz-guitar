@@ -4,7 +4,7 @@ Jazz theory drills for guitar, built for short offline sessions on a phone. A we
 
 ## Drills
 
-- **Chord spelling**: `B♭m7` → tap B♭ D♭ F A♭. 66 chords: the diatonic 7th chords of all 12 major keys, minor ii–V–i chords, and common °7s.
+- **Chord spelling**: `B♭m7` → tap B♭ D♭ F A♭. 66 chords: the diatonic 7th chords of all 12 major keys, minor ii–V–i chords, and common °7s. After a slow or wrong answer, tap a note to hear it or ▶ to hear the chord (piano; mixes over other apps' music).
 - **Chord tones**: "3rd of E♭7?" and "In D7, C is the…?" 3rds and 7ths come up about 3× as often as 5ths.
 - **Keys & ii–V–I**: "ii in A♭?", "B♭m7 in D♭ is which degree?", "Gm7 → C7 → ?" (major and minor).
 - **Fretboard**: name a marked note; find a note on every string.
@@ -45,3 +45,7 @@ Then open `http://localhost:4173` in Chrome on the phone and install it. To upda
 - `src/drills/facts.ts`: every drillable fact, with target answer time and weight
 - `src/srs/`: practice history (`progress.ts`) and question picking (`scheduler.ts`)
 - `src/ui/`: screens, keypads, fretboard SVG
+
+## Credits
+
+Piano samples: [Salamander Grand Piano](https://archive.org/details/SalamanderGrandPianoV3) by Alexander Holm, CC BY 3.0. Eight notes, trimmed to 1.5s and converted to mono.

@@ -1,18 +1,21 @@
-import { type ReactNode, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import type { Fact } from '../drills/facts';
-import { type Chord, chordName, chordTones, type Degree, DEGREE_LABEL, type Quality, QUALITY_DEGREES, QUALITY_SYMBOL, TONE_ORDINAL } from '../theory/chords';
+import { type Chord, chordName, chordPitches, chordTones, type Degree, DEGREE_LABEL, type Quality, QUALITY_DEGREES, QUALITY_SYMBOL, TONE_ORDINAL } from '../theory/chords';
 import { fretsFor, pitchAt } from '../theory/fretboard';
 import { diatonicChord, diatonicChords, keyName, ROMAN, twoFiveOne } from '../theory/keys';
 import { accepts, GRID_ROWS, type Note, noteName, pc, pitchNames } from '../theory/notes';
 import { buzz } from './feedback';
 import { type Dot, Fretboard } from './Fretboard';
 import { DegreePad, type Mark, NoteGrid, QualityPad, RomanPad } from './pads';
+import { playChord, playNote, warmUp } from './sound';
 
 type FactOf<K extends Fact['kind']> = Extract<Fact, { kind: K }>;
 
 export interface QuestionProps<F extends Fact = Fact> {
   fact: F;
   revealed: boolean;
+  /** Answered slowly or wrong: the answer can be played back. */
+  listen: boolean;
   onAnswer: (correct: boolean) => void;
 }
 
@@ -90,13 +93,27 @@ function DiatonicRow({ keyNote, highlight }: { keyNote: Note; highlight: number 
   );
 }
 
+/** Acts on finger-down rather than release, for sound with no lag. Keyboard activation still works. */
+function onPress(action: () => void) {
+  return {
+    onPointerDown: action,
+    onClick: (e: { detail: number }) => {
+      if (e.detail === 0) action();
+    },
+  };
+}
+
 // --- Chord spelling ------------------------------------------------------------------------
 
-function SpellQuestion({ fact, revealed, onAnswer }: QuestionProps<FactOf<'spell'>>) {
+function SpellQuestion({ fact, revealed, listen, onAnswer }: QuestionProps<FactOf<'spell'>>) {
   const tones = chordTones(fact.chord);
   const degrees = QUALITY_DEGREES[fact.chord.quality];
+  const pitches = chordPitches(fact.chord);
   const [entries, setEntries] = useState<{ given: Note; ok: boolean }[]>([]);
   const entriesRef = useRef(entries);
+  useEffect(() => {
+    if (listen) warmUp();
+  }, [listen]);
 
   const pick = (n: Note) => {
     const current = entriesRef.current;
@@ -113,21 +130,35 @@ function SpellQuestion({ fact, revealed, onAnswer }: QuestionProps<FactOf<'spell
     <>
       <div className="stage">
         <Prompt main={chordName(fact.chord)} ask="Spell it: 3rd, 5th, 7th" />
-        <div className="slots">
-          {tones.map((t, i) => {
-            const entry = i === 0 ? undefined : entries[i - 1];
-            const state = i === 0 ? 'root' : !entry ? (i === entries.length + 1 ? 'next' : 'empty') : entry.ok ? 'ok' : 'bad';
-            return (
-              <div key={i} className={`slot slot-${state}`}>
-                <span className="slot-note">
-                  {i === 0 || entry ? noteName(t) : ''}
-                  {entry && !entry.ok && <s className="slot-typed">{noteName(entry.given)}</s>}
-                </span>
-                <span className="slot-label">{revealed || entry ? DEGREE_LABEL[degrees[i]] : TONE_ORDINAL[i]}</span>
-              </div>
-            );
-          })}
+        <div className={listen ? 'listen' : undefined}>
+          <div className="slots">
+            {tones.map((t, i) => {
+              const entry = i === 0 ? undefined : entries[i - 1];
+              const state = i === 0 ? 'root' : !entry ? (i === entries.length + 1 ? 'next' : 'empty') : entry.ok ? 'ok' : 'bad';
+              const Slot = listen ? 'button' : 'div';
+              return (
+                <Slot
+                  key={i}
+                  type={listen ? 'button' : undefined}
+                  className={`slot slot-${state}`}
+                  {...(listen ? onPress(() => playNote(pitches[i])) : {})}
+                >
+                  <span className="slot-note">
+                    {i === 0 || entry ? noteName(t) : ''}
+                    {entry && !entry.ok && <s className="slot-typed">{noteName(entry.given)}</s>}
+                  </span>
+                  <span className="slot-label">{revealed || entry ? DEGREE_LABEL[degrees[i]] : TONE_ORDINAL[i]}</span>
+                </Slot>
+              );
+            })}
+          </div>
+          {listen && (
+            <button type="button" className="ghost-btn play-chord" {...onPress(() => playChord(pitches))}>
+              ▶ Play chord
+            </button>
+          )}
         </div>
+        {listen && <div className="listen-hint">Tap a note to hear it · anywhere else for next</div>}
       </div>
       <div className="pad">
         <NoteGrid onPick={pick} disabled={revealed} />

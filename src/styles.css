@@ -428,6 +428,40 @@ button {
   border-color: var(--bad);
 }
 
+/* After a slow or wrong spelling, the slots and chord button play sound. They sit above the
+   tap-anywhere-to-continue layer. */
+.listen {
+  position: relative;
+  z-index: 11;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+button.slot {
+  font: inherit;
+  color: inherit;
+  padding: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+button.slot:active {
+  transform: scale(0.95);
+}
+
+.ghost-btn.play-chord {
+  color: var(--accent);
+  border-color: var(--accent);
+  touch-action: manipulation;
+}
+
+.listen-hint {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 /* Revealed answers */
 
 .chips {

@@ -40,6 +40,9 @@ function useQuestionTimer(questionKey: number) {
 
 const fmtSecs = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 
+/** Question types whose answer can be played back after a slow or wrong answer. */
+const AUDIBLE: ReadonlySet<Fact['kind']> = new Set(['spell']);
+
 export function DrillScreen({ area, progress, onRecord, onExit }: Props) {
   const facts = useMemo(() => {
     const all = area === 'mix' ? FACTS : factsIn(area);
@@ -72,14 +75,18 @@ export function DrillScreen({ area, progress, onRecord, onExit }: Props) {
     setQuestion((q) => ({ n: q.n + 1, fact }));
   };
 
+  const slow = !!result?.correct && result.ms > question.fact.targetMs;
+  const listen = AUDIBLE.has(question.fact.kind) && !!result && (!result.correct || slow);
+  // Wait for a tap after a miss, or when there's an answer to listen to.
+  const hold = !!result && (!result.correct || listen);
+
   useEffect(() => {
-    if (!result?.correct) return;
+    if (!result || hold) return;
     const id = setTimeout(next, 650);
     return () => clearTimeout(id);
-  }, [result]);
+  }, [result, hold]);
 
   const title = area === 'mix' ? 'Mix' : AREAS.find((a) => a.id === area)!.title;
-  const slow = result?.correct && result.ms > question.fact.targetMs;
 
   return (
     <div className="screen drill">
@@ -105,23 +112,23 @@ export function DrillScreen({ area, progress, onRecord, onExit }: Props) {
         />
       </div>
 
-      <QuestionView key={question.n} fact={question.fact} revealed={result !== null} onAnswer={answer} />
+      <QuestionView key={question.n} fact={question.fact} revealed={result !== null} listen={listen} onAnswer={answer} />
 
       <div className={`result ${result ? (result.correct ? (slow ? 'result-slow' : 'result-ok') : 'result-bad') : ''}`} aria-live="polite">
         {result &&
           (result.correct ? (
             <>✓ {fmtSecs(result.ms)}{slow && <span> · aim for {fmtSecs(question.fact.targetMs)}</span>}</>
           ) : (
-            <>✗ Not quite. Tap anywhere to continue</>
+            <>✗ Not quite{!listen && '. Tap anywhere to continue'}</>
           ))}
       </div>
 
-      {result && !result.correct && (
+      {hold && (
         <div
           className="continue-layer"
           onPointerDown={(e) => {
-            // Ignore the tail of the tap that produced the wrong answer.
-            if (performance.now() - result.at < 350) return;
+            // Ignore the tail of the tap that gave the answer.
+            if (performance.now() - result!.at < 350) return;
             e.preventDefault();
             next();
           }}

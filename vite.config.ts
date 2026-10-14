@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'icon.svg', 'apple-touch-icon-180x180.png'],
+      includeAssets: ['favicon.ico', 'icon.svg', 'apple-touch-icon-180x180.png', 'piano/*.mp3'],
       manifest: {
         name: 'Changes: Jazz Theory Drills',
         short_name: 'Changes',

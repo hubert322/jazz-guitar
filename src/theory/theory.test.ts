@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chord, chordName, chordTones, type Quality } from './chords';
+import { chord, chordName, chordPitches, chordTones, type Quality } from './chords';
 import { fretsFor, pitchAt } from './fretboard';
 import { chordPool, diatonicChords, MAJOR_KEYS, MINOR_KEYS, twoFiveOne } from './keys';
 import { accepts, GRID_ROWS, note, noteName, pc, sameNote } from './notes';
@@ -20,6 +20,22 @@ describe('chord spelling', () => {
     expect(spell('Cb', 'maj7')).toBe('C♭ E♭ G♭ B♭');
     expect(spell('A#', 'm7b5')).toBe('A♯ C♯ E G♯');
     expect(spell('Db', 'dom7')).toBe('D♭ F A♭ C♭');
+  });
+});
+
+describe('chord pitches', () => {
+  it('stacks up from a root between A2 and G♯3', () => {
+    expect(chordPitches(chord('A', 'dom7'))).toEqual([45, 49, 52, 55]);
+    expect(chordPitches(chord('C', 'maj7'))).toEqual([48, 52, 55, 59]);
+    expect(chordPitches(chord('Ab', 'm7'))).toEqual([56, 59, 63, 66]);
+    expect(chordPitches(chord('G#', 'm7'))).toEqual([56, 59, 63, 66]);
+  });
+
+  it('matches the spelled pitch classes', () => {
+    for (const q of ['maj7', 'dom7', 'm7', 'm7b5', 'dim7'] as Quality[]) {
+      const c = chord('Cb', q);
+      expect(chordPitches(c).map((m) => m % 12)).toEqual(chordTones(c).map(pc));
+    }
   });
 });
 

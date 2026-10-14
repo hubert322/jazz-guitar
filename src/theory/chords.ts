@@ -1,4 +1,4 @@
-import { type Interval, type Note, noteName, note, transpose } from './notes';
+import { type Interval, mod, type Note, noteName, note, pc, transpose } from './notes';
 
 export type Degree = '1' | 'b3' | '3' | 'b5' | '5' | 'bb7' | 'b7' | '7';
 
@@ -65,3 +65,12 @@ export function chordTones(c: Chord): Note[] {
 
 /** Position in the chord: 0 root, 1 third, 2 fifth, 3 seventh. */
 export const TONE_ORDINAL = ['root', '3rd', '5th', '7th'] as const;
+
+/**
+ * MIDI pitches for hearing a chord: stacked up from the root, with the root always between
+ * A2 and G♯3 so chords sit in the guitar's middle register and don't jump around.
+ */
+export function chordPitches(c: Chord): number[] {
+  const root = 45 + mod(pc(c.root) - 9, 12);
+  return QUALITY_DEGREES[c.quality].map((d) => root + DEGREE_INTERVALS[d].semis);
+}
