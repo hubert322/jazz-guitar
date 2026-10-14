@@ -9,6 +9,7 @@ interface Props {
   progress: Progress;
   onRecord: (fact: Fact, correct: boolean, ms: number) => void;
   onExit: () => void;
+  onVolume: (volume: number) => void;
 }
 
 /** Times a question, leaving out time the app spent in the background (phone locked, other app). */
@@ -43,7 +44,7 @@ const fmtSecs = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 /** Question types whose answer can be played back after a slow or wrong answer. */
 const AUDIBLE: ReadonlySet<Fact['kind']> = new Set(['spell']);
 
-export function DrillScreen({ area, progress, onRecord, onExit }: Props) {
+export function DrillScreen({ area, progress, onRecord, onExit, onVolume }: Props) {
   const keys = progress.settings.keys;
   const facts = useMemo(() => {
     // Dev only: ?only=fretFind limits a drill to one question type for testing.
@@ -112,7 +113,15 @@ export function DrillScreen({ area, progress, onRecord, onExit }: Props) {
         />
       </div>
 
-      <QuestionView key={question.n} fact={question.fact} revealed={result !== null} listen={listen} onAnswer={answer} />
+      <QuestionView
+        key={question.n}
+        fact={question.fact}
+        revealed={result !== null}
+        listen={listen}
+        onAnswer={answer}
+        volume={progress.settings.volume}
+        onVolume={onVolume}
+      />
 
       <div className={`result ${result ? (result.correct ? (slow ? 'result-slow' : 'result-ok') : 'result-bad') : ''}`} aria-live="polite">
         {result &&

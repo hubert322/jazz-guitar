@@ -4,6 +4,7 @@ import { type Chord, chordName, chordPitches, chordTones, type Degree, DEGREE_LA
 import { fretsFor, pitchAt } from '../theory/fretboard';
 import { diatonicChord, diatonicChords, keyName, ROMAN, twoFiveOne } from '../theory/keys';
 import { accepts, GRID_ROWS, type Note, noteName, pc, pitchNames } from '../theory/notes';
+import { VOLUMES } from '../srs/progress';
 import { buzz } from './feedback';
 import { type Dot, Fretboard } from './Fretboard';
 import { DegreePad, type Mark, NoteGrid, QualityPad, RomanPad } from './pads';
@@ -17,6 +18,9 @@ export interface QuestionProps<F extends Fact = Fact> {
   /** Answered slowly or wrong: the answer can be played back. */
   listen: boolean;
   onAnswer: (correct: boolean) => void;
+  /** Playback loudness, one of VOLUMES. */
+  volume: number;
+  onVolume: (volume: number) => void;
 }
 
 export function QuestionView(props: QuestionProps) {
@@ -103,9 +107,25 @@ function onPress(action: () => void) {
   };
 }
 
+/** − and + stop at the quietest and loudest levels, so a stray tap is undone by one tap back. Silent, so a stray tap can't blast. */
+function VolumeStepper({ volume, onVolume }: { volume: number; onVolume: (volume: number) => void }) {
+  const i = VOLUMES.indexOf(volume);
+  return (
+    <div className="volume" role="group" aria-label="Volume">
+      <button type="button" className="ghost-btn volume-btn" aria-label="Quieter" disabled={i === 0} onClick={() => onVolume(VOLUMES[i - 1])}>
+        −
+      </button>
+      <span className="volume-level">{volume}×</span>
+      <button type="button" className="ghost-btn volume-btn" aria-label="Louder" disabled={i === VOLUMES.length - 1} onClick={() => onVolume(VOLUMES[i + 1])}>
+        +
+      </button>
+    </div>
+  );
+}
+
 // --- Chord spelling ------------------------------------------------------------------------
 
-function SpellQuestion({ fact, revealed, listen, onAnswer }: QuestionProps<FactOf<'spell'>>) {
+function SpellQuestion({ fact, revealed, listen, onAnswer, volume, onVolume }: QuestionProps<FactOf<'spell'>>) {
   const tones = chordTones(fact.chord);
   const degrees = QUALITY_DEGREES[fact.chord.quality];
   const pitches = chordPitches(fact.chord);
@@ -153,9 +173,12 @@ function SpellQuestion({ fact, revealed, listen, onAnswer }: QuestionProps<FactO
             })}
           </div>
           {listen && (
-            <button type="button" className="ghost-btn play-chord" {...onPress(() => playChord(pitches))}>
-              ▶ Play chord
-            </button>
+            <div className="listen-btns">
+              <button type="button" className="ghost-btn play-chord" {...onPress(() => playChord(pitches))}>
+                ▶ Play chord
+              </button>
+              <VolumeStepper volume={volume} onVolume={onVolume} />
+            </div>
           )}
         </div>
         {listen && <div className="listen-hint">Tap a note to hear it · anywhere else for next</div>}

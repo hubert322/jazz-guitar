@@ -4,6 +4,7 @@ import { emptyProgress, loadProgress, type Progress, recordAnswer, saveProgress 
 import { DrillScreen } from './ui/DrillScreen';
 import { setVibrate } from './ui/feedback';
 import { Home } from './ui/Home';
+import { setVolume } from './ui/sound';
 import { Stats } from './ui/Stats';
 
 type Screen = { name: 'home' } | { name: 'drill'; area: Area | 'mix' } | { name: 'stats' };
@@ -15,6 +16,7 @@ export function App() {
   useEffect(() => {
     saveProgress(progress);
     setVibrate(progress.settings.vibrate);
+    setVolume(progress.settings.volume);
   }, [progress]);
 
   useEffect(() => {
@@ -41,7 +43,16 @@ export function App() {
 
   switch (screen.name) {
     case 'drill':
-      return <DrillScreen key={screen.area} area={screen.area} progress={progress} onRecord={record} onExit={goHome} />;
+      return (
+        <DrillScreen
+          key={screen.area}
+          area={screen.area}
+          progress={progress}
+          onRecord={record}
+          onExit={goHome}
+          onVolume={(volume) => setProgress((p) => ({ ...p, settings: { ...p.settings, volume } }))}
+        />
+      );
     case 'stats':
       return (
         <Stats

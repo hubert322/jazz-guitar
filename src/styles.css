@@ -514,6 +514,33 @@ button.slot:active {
   touch-action: manipulation;
 }
 
+.listen-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.volume {
+  display: flex;
+  align-items: center;
+}
+
+.ghost-btn.volume-btn {
+  padding: 10px 14px;
+  touch-action: manipulation;
+}
+
+.ghost-btn.volume-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.volume-level {
+  min-width: 3ch;
+  text-align: center;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .listen-hint {
   color: var(--muted);
   font-size: 13px;

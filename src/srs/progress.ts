@@ -22,7 +22,12 @@ export interface Settings {
   vibrate: boolean;
   /** Major keys in rotation, as pitch classes. */
   keys: number[];
+  /** Piano playback loudness, one of VOLUMES. */
+  volume: number;
 }
+
+/** Steps the volume button cycles through: louder than as recorded, for listening over music. */
+export const VOLUMES = [1, 2, 3, 4];
 
 export interface Progress {
   v: 1;
@@ -34,7 +39,7 @@ export interface Progress {
 
 const STORAGE_KEY = 'changes:v1';
 
-export const emptyProgress = (): Progress => ({ v: 1, facts: {}, days: {}, settings: { vibrate: true, keys: KEY_CYCLE } });
+export const emptyProgress = (): Progress => ({ v: 1, facts: {}, days: {}, settings: { vibrate: true, keys: KEY_CYCLE, volume: 1 } });
 
 export function loadProgress(): Progress {
   try {
@@ -44,6 +49,7 @@ export function loadProgress(): Progress {
     if (parsed?.v !== 1 || typeof parsed.facts !== 'object') return emptyProgress();
     const settings = { ...emptyProgress().settings, ...parsed.settings };
     if (!Array.isArray(settings.keys) || settings.keys.length === 0) settings.keys = KEY_CYCLE;
+    if (!VOLUMES.includes(settings.volume)) settings.volume = 1;
     return { ...emptyProgress(), ...parsed, settings };
   } catch {
     return emptyProgress();

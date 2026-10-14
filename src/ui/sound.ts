@@ -9,6 +9,8 @@ const SAMPLES = [45, 48, 51, 54, 57, 60, 63, 66];
 
 let ctx: AudioContext | null = null;
 let bus: GainNode | null = null;
+let limiter: DynamicsCompressorNode | null = null;
+let volume = 1;
 let idleTimer: ReturnType<typeof setTimeout> | undefined;
 let loading: Promise<Map<number, Sample>> | null = null;
 
@@ -62,11 +64,23 @@ export function warmUp() {
   sleepAfter(IDLE_SECS);
 }
 
+/** Playback loudness, 1 = as recorded. Above 1 the sound goes through a limiter so chords don't clip. */
+export function setVolume(v: number) {
+  volume = v;
+}
+
 function context(): AudioContext {
   if (!ctx) {
     const session = (navigator as { audioSession?: { type: string } }).audioSession;
     if (session) session.type = 'ambient';
     ctx = new AudioContext();
+    limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -3;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.002;
+    limiter.release.value = 0.15;
+    limiter.connect(ctx.destination);
   }
   if (ctx.state === 'suspended') void ctx.resume();
   return ctx;
@@ -95,7 +109,8 @@ async function play(events: NoteEvent[]) {
     setTimeout(() => old.disconnect(), 200);
   }
   bus = ac.createGain();
-  bus.connect(ac.destination);
+  bus.gain.value = volume;
+  bus.connect(volume > 1 ? limiter! : ac.destination);
 
   for (const e of events) {
     const base = nearest(e.midi);
