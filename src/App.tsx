@@ -52,6 +52,13 @@ export function App() {
         />
       );
     default:
-      return <Home progress={progress} onStart={(area) => setScreen({ name: 'drill', area })} onStats={() => setScreen({ name: 'stats' })} />;
+      return (
+        <Home
+          progress={progress}
+          onStart={(area) => setScreen({ name: 'drill', area })}
+          onStats={() => setScreen({ name: 'stats' })}
+          onKeys={(keys) => setProgress((p) => ({ ...p, settings: { ...p.settings, keys } }))}
+        />
+      );
   }
 }

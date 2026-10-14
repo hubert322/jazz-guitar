@@ -9,6 +9,8 @@ Jazz theory drills for guitar, built for short offline sessions on a phone. A we
 - **Keys & ii–V–I**: "ii in A♭?", "B♭m7 in D♭ is which degree?", "Gm7 → C7 → ?" (major and minor).
 - **Fretboard**: name a marked note; find a note on every string.
 
+**Keys** on the home screen limit spelling, chord tones and keys drills to a few keys at a time. Picking C gives its 7 diatonic chords plus A minor's ii–V–i and G♯°7 (9 chords instead of 66). When any of those drills is 80% fluent in your keys, the app suggests the next key around the cycle of 4ths (C F B♭ E♭ …). The fretboard drill ignores the key setting.
+
 Spelling is strict (A♭7 has a G♭, not an F♯). The one exception is double flats, which the keypad doesn't have: for C°7 either B♭♭ or A counts.
 
 Every answer is timed. Facts you miss come back 3 questions later, and slow or missed facts come up more often. Practice history lives in the browser's local storage on the device.

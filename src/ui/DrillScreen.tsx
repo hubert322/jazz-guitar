@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AREAS, type Area, type Fact, FACTS, factsIn } from '../drills/facts';
+import { activeFacts, AREAS, type Area, type Fact, FACTS } from '../drills/facts';
 import type { Progress } from '../srs/progress';
 import { newSession, noteAnswer, pickNext } from '../srs/scheduler';
 import { QuestionView } from './questions';
@@ -44,12 +44,12 @@ const fmtSecs = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 const AUDIBLE: ReadonlySet<Fact['kind']> = new Set(['spell']);
 
 export function DrillScreen({ area, progress, onRecord, onExit }: Props) {
+  const keys = progress.settings.keys;
   const facts = useMemo(() => {
-    const all = area === 'mix' ? FACTS : factsIn(area);
     // Dev only: ?only=fretFind limits a drill to one question type for testing.
     const only = import.meta.env.DEV ? new URLSearchParams(location.search).get('only') : null;
-    return only ? FACTS.filter((f) => f.kind === only) : all;
-  }, [area]);
+    return only ? FACTS.filter((f) => f.kind === only) : activeFacts(area, keys);
+  }, [area, keys]);
   const session = useRef(newSession());
   const progressRef = useRef(progress);
   progressRef.current = progress;

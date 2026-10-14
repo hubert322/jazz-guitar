@@ -1,11 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { FACTS, factsIn } from '../drills/facts';
+import { activeFacts, FACTS, factsIn } from '../drills/facts';
 import { emptyProgress, recordAnswer, statusOf, streakDays } from './progress';
 import { newSession, noteAnswer, pickNext, priority } from './scheduler';
 
 describe('facts', () => {
   it('have unique ids', () => {
     expect(new Set(FACTS.map((f) => f.id)).size).toBe(FACTS.length);
+  });
+
+  it('limit chord spelling to the chosen keys', () => {
+    const spelled = (keys: number[]) => activeFacts('spell', keys).map((f) => f.id.slice('spell:'.length)).sort();
+    expect(spelled([0])).toEqual(['Am7', 'Bm7♭5', 'Cmaj7', 'Dm7', 'E7', 'Em7', 'Fmaj7', 'G7', 'G♯°7']);
+    // °7s are spelled once in the pool, so B♭ major's F♯°7 and E major's C°7 (B♯°7) both turn up.
+    expect(spelled([10])).toContain('F♯°7');
+    expect(spelled([4])).toContain('C°7');
+  });
+
+  it('puts every key-based fact in some key and leaves the fretboard alone', () => {
+    for (const f of FACTS) expect(f.keys.length > 0).toBe(f.area !== 'fretboard');
+    expect(activeFacts('fretboard', [0])).toEqual(factsIn('fretboard'));
+    const cadences = activeFacts('keys', [0]).filter((f) => f.kind === 'cadence').map((f) => f.id);
+    expect(cadences.sort()).toEqual(['cadence:A minor', 'cadence:C major']);
   });
 });
 

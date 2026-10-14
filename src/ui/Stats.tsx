@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { type Area, type Fact, factsIn } from '../drills/facts';
 import { combineStatus, type Progress, type Status, statusOf } from '../srs/progress';
 import { QUALITIES, QUALITY_SYMBOL } from '../theory/chords';
-import { MAJOR_KEYS, MINOR_KEYS, ROMAN } from '../theory/keys';
+import { KEY_CYCLE as CYCLE, MAJOR_KEYS, MINOR_KEYS, ROMAN } from '../theory/keys';
 import { noteName, pc, pitchNames } from '../theory/notes';
 import { Fretboard } from './Fretboard';
 
@@ -13,8 +13,6 @@ interface Props {
   onReset: () => void;
 }
 
-/** Cycle of 4ths, the order jazz players practice keys in. */
-const CYCLE = [0, 5, 10, 3, 8, 1, 6, 11, 4, 9, 2, 7];
 const ROW_LABEL = ['C', 'D♭ C♯', 'D', 'E♭ D♯', 'E', 'F', 'G♭ F♯', 'G', 'A♭ G♯', 'A', 'B♭ A♯', 'B'];
 
 const STATUS_LABEL: Record<Status, string> = { new: 'Not seen', weak: 'Missed', learning: 'Getting there', fluent: 'Fluent' };

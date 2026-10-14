@@ -1,5 +1,5 @@
 import { type Chord, chord, chordName } from './chords';
-import { type Interval, type Note, note, noteName, transpose } from './notes';
+import { type Interval, type Note, note, noteName, pc, transpose } from './notes';
 
 /** The 12 major keys as they're usually written in jazz charts. */
 export const MAJOR_KEYS: Note[] = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'].map(note);
@@ -58,4 +58,18 @@ export function chordPool(): Chord[] {
     seen.add(name);
     return true;
   });
+}
+
+/** Pitch classes of the major keys around the cycle of 4ths, the order jazz players learn keys in. */
+export const KEY_CYCLE = [0, 5, 10, 3, 8, 1, 6, 11, 4, 9, 2, 7];
+
+const M7: Interval = { steps: 6, semis: 11 };
+
+/**
+ * The chords one major key brings to the spelling and chord-tone drills: its diatonic 7th chords
+ * plus its relative minor's ii–V–i and leading-tone °7 (in C: Bm7♭5 E7 Am7, G♯°7).
+ */
+export function keyChords(key: Note): Chord[] {
+  const minor = MINOR_KEYS[MAJOR_KEYS.findIndex((k) => pc(k) === pc(key))];
+  return [...diatonicChords(key), ...twoFiveOne(minor, true).chords, { root: transpose(minor, M7), quality: 'dim7' }];
 }

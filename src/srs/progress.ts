@@ -1,3 +1,5 @@
+import { KEY_CYCLE } from '../theory/keys';
+
 /** Per-fact practice history, kept small because it's saved after every answer. */
 export interface FactStat {
   /** attempts */
@@ -18,6 +20,8 @@ export interface FactStat {
 
 export interface Settings {
   vibrate: boolean;
+  /** Major keys in rotation, as pitch classes. */
+  keys: number[];
 }
 
 export interface Progress {
@@ -30,7 +34,7 @@ export interface Progress {
 
 const STORAGE_KEY = 'changes:v1';
 
-export const emptyProgress = (): Progress => ({ v: 1, facts: {}, days: {}, settings: { vibrate: true } });
+export const emptyProgress = (): Progress => ({ v: 1, facts: {}, days: {}, settings: { vibrate: true, keys: KEY_CYCLE } });
 
 export function loadProgress(): Progress {
   try {
@@ -38,7 +42,9 @@ export function loadProgress(): Progress {
     if (!raw) return emptyProgress();
     const parsed = JSON.parse(raw) as Progress;
     if (parsed?.v !== 1 || typeof parsed.facts !== 'object') return emptyProgress();
-    return { ...emptyProgress(), ...parsed, settings: { ...emptyProgress().settings, ...parsed.settings } };
+    const settings = { ...emptyProgress().settings, ...parsed.settings };
+    if (!Array.isArray(settings.keys) || settings.keys.length === 0) settings.keys = KEY_CYCLE;
+    return { ...emptyProgress(), ...parsed, settings };
   } catch {
     return emptyProgress();
   }

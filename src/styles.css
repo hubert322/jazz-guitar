@@ -196,6 +196,63 @@ button {
   cursor: pointer;
 }
 
+/* Key picker */
+
+.keys {
+  margin-bottom: 14px;
+}
+
+.keys-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.keys-title {
+  font-weight: 650;
+}
+
+.key-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+
+.key-chip {
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.key-chip.on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.key-all {
+  margin-left: auto;
+  height: 32px;
+  padding: 0 14px;
+}
+
+.key-next {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px dashed var(--good);
+  background: var(--good-soft);
+  color: var(--good);
+  font-weight: 600;
+  cursor: pointer;
+}
+
 /* --- Drill --------------------------------------------------------------------------------- */
 
 .drill {
