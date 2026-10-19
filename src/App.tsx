@@ -4,10 +4,11 @@ import { emptyProgress, loadProgress, type Progress, recordAnswer, saveProgress 
 import { DrillScreen } from './ui/DrillScreen';
 import { setVibrate } from './ui/feedback';
 import { Home } from './ui/Home';
+import { PlayAlong } from './ui/PlayAlong';
 import { setVolume } from './ui/sound';
 import { Stats } from './ui/Stats';
 
-type Screen = { name: 'home' } | { name: 'drill'; area: Area | 'mix' } | { name: 'stats' };
+type Screen = { name: 'home' } | { name: 'drill'; area: Area | 'mix' } | { name: 'play' } | { name: 'stats' };
 
 export function App() {
   const [progress, setProgress] = useState<Progress>(loadProgress);
@@ -38,6 +39,8 @@ export function App() {
     else setScreen({ name: 'home' });
   };
 
+  const setVolumeSetting = (volume: number) => setProgress((p) => ({ ...p, settings: { ...p.settings, volume } }));
+
   const record = (fact: Fact, correct: boolean, ms: number) =>
     setProgress((p) => recordAnswer(p, fact.id, correct, ms, fact.targetMs));
 
@@ -50,7 +53,18 @@ export function App() {
           progress={progress}
           onRecord={record}
           onExit={goHome}
-          onVolume={(volume) => setProgress((p) => ({ ...p, settings: { ...p.settings, volume } }))}
+          onVolume={setVolumeSetting}
+        />
+      );
+    case 'play':
+      return (
+        <PlayAlong
+          keys={progress.settings.keys}
+          play={progress.settings.play}
+          volume={progress.settings.volume}
+          onPlay={(play) => setProgress((p) => ({ ...p, settings: { ...p.settings, play } }))}
+          onVolume={setVolumeSetting}
+          onExit={goHome}
         />
       );
     case 'stats':
@@ -67,6 +81,7 @@ export function App() {
         <Home
           progress={progress}
           onStart={(area) => setScreen({ name: 'drill', area })}
+          onPlay={() => setScreen({ name: 'play' })}
           onStats={() => setScreen({ name: 'stats' })}
           onKeys={(keys) => setProgress((p) => ({ ...p, settings: { ...p.settings, keys } }))}
         />

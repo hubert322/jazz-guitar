@@ -6,6 +6,7 @@ import { noteName, pc } from '../theory/notes';
 interface Props {
   progress: Progress;
   onStart: (area: Area | 'mix') => void;
+  onPlay: () => void;
   onStats: () => void;
   onKeys: (keys: number[]) => void;
 }
@@ -82,7 +83,7 @@ function Meter({ fluent, total }: { fluent: number; total: number }) {
   );
 }
 
-export function Home({ progress, onStart, onStats, onKeys }: Props) {
+export function Home({ progress, onStart, onPlay, onStats, onKeys }: Props) {
   const today = progress.days[dayKey()] ?? 0;
   const streak = streakDays(progress);
   return (
@@ -112,6 +113,11 @@ export function Home({ progress, onStart, onStats, onKeys }: Props) {
           </button>
         ))}
       </div>
+
+      <button type="button" className="card card-play" onClick={onPlay}>
+        <div className="card-title">ii–V–I play-along</div>
+        <div className="card-blurb">Random keys over a metronome: ♭9♭13 bebop scale on the ii–V, improvise on the I</div>
+      </button>
 
       <button type="button" className="link-btn" onClick={onStats}>
         See weak spots →

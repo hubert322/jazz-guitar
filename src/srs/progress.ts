@@ -1,3 +1,4 @@
+import type { Mode } from '../play/cycles';
 import { KEY_CYCLE } from '../theory/keys';
 
 /** Per-fact practice history, kept small because it's saved after every answer. */
@@ -24,6 +25,34 @@ export interface Settings {
   keys: number[];
   /** Piano playback loudness, one of VOLUMES. */
   volume: number;
+  play: PlaySettings;
+}
+
+/** The ii–V–I play-along. */
+export interface PlaySettings {
+  bpm: number;
+  /** Which of beats 1–4 click. */
+  clicks: boolean[];
+  /** Piano chord on each bar. */
+  piano: boolean;
+  mode: Mode;
+  /** Times through a key before moving to another. */
+  repeat: number;
+}
+
+export const BPM_MIN = 40;
+export const BPM_MAX = 240;
+export const REPEATS = [1, 2, 4];
+
+const defaultPlay = (): PlaySettings => ({ bpm: 100, clicks: [false, true, false, true], piano: true, mode: 'minor', repeat: 1 });
+
+function cleanPlay(raw: Partial<PlaySettings> | undefined): PlaySettings {
+  const play = { ...defaultPlay(), ...raw };
+  if (!(play.bpm >= BPM_MIN && play.bpm <= BPM_MAX)) play.bpm = defaultPlay().bpm;
+  if (!Array.isArray(play.clicks) || play.clicks.length !== 4) play.clicks = defaultPlay().clicks;
+  if (!['major', 'minor', 'mix'].includes(play.mode)) play.mode = defaultPlay().mode;
+  if (!REPEATS.includes(play.repeat)) play.repeat = 1;
+  return play;
 }
 
 /** Steps the volume button cycles through: louder than as recorded, for listening over music. */
@@ -39,7 +68,7 @@ export interface Progress {
 
 const STORAGE_KEY = 'changes:v1';
 
-export const emptyProgress = (): Progress => ({ v: 1, facts: {}, days: {}, settings: { vibrate: true, keys: KEY_CYCLE, volume: 1 } });
+export const emptyProgress = (): Progress => ({ v: 1, facts: {}, days: {}, settings: { vibrate: true, keys: KEY_CYCLE, volume: 1, play: defaultPlay() } });
 
 export function loadProgress(): Progress {
   try {
@@ -50,6 +79,7 @@ export function loadProgress(): Progress {
     const settings = { ...emptyProgress().settings, ...parsed.settings };
     if (!Array.isArray(settings.keys) || settings.keys.length === 0) settings.keys = KEY_CYCLE;
     if (!VOLUMES.includes(settings.volume)) settings.volume = 1;
+    settings.play = cleanPlay(parsed.settings?.play);
     return { ...emptyProgress(), ...parsed, settings };
   } catch {
     return emptyProgress();

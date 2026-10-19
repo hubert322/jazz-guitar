@@ -108,7 +108,7 @@ function onPress(action: () => void) {
 }
 
 /** − and + stop at the quietest and loudest levels, so a stray tap is undone by one tap back. Silent, so a stray tap can't blast. */
-function VolumeStepper({ volume, onVolume }: { volume: number; onVolume: (volume: number) => void }) {
+export function VolumeStepper({ volume, onVolume }: { volume: number; onVolume: (volume: number) => void }) {
   const i = VOLUMES.indexOf(volume);
   return (
     <div className="volume" role="group" aria-label="Volume">

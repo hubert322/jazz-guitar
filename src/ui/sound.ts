@@ -33,7 +33,7 @@ function onsetOf(buffer: AudioBuffer): number {
 }
 
 /** Fetches and decodes the samples once. Decoding needs no live audio, so this can run before any tap. */
-function loadPiano(): Promise<Map<number, Sample>> {
+export function loadPiano(): Promise<Map<number, Sample>> {
   loading ??= (async () => {
     const decoder = new OfflineAudioContext(1, 1, 44100);
     const entries = await Promise.all(
@@ -49,7 +49,7 @@ function loadPiano(): Promise<Map<number, Sample>> {
   return loading;
 }
 
-function sleepAfter(secs: number) {
+export function sleepAfter(secs = IDLE_SECS) {
   clearTimeout(idleTimer);
   idleTimer = setTimeout(() => void ctx?.suspend(), secs * 1000);
 }
@@ -69,7 +69,7 @@ export function setVolume(v: number) {
   volume = v;
 }
 
-function context(): AudioContext {
+export function context(): AudioContext {
   if (!ctx) {
     const session = (navigator as { audioSession?: { type: string } }).audioSession;
     if (session) session.type = 'ambient';
@@ -87,6 +87,33 @@ function context(): AudioContext {
 }
 
 const nearest = (midi: number) => SAMPLES.reduce((a, b) => (Math.abs(b - midi) < Math.abs(a - midi) ? b : a));
+
+/** One piano note at an exact audio-clock time, into `dest`. */
+export function pianoNote(samples: Map<number, Sample>, dest: AudioNode, midi: number, when: number, hold: number, gain: number) {
+  const ac = dest.context;
+  const base = nearest(midi);
+  const sample = samples.get(base)!;
+  const src = ac.createBufferSource();
+  src.buffer = sample.buffer;
+  src.playbackRate.value = 2 ** ((midi - base) / 12);
+  const g = ac.createGain();
+  g.gain.value = gain;
+  g.gain.setTargetAtTime(0, when + hold, 0.08);
+  src.connect(g).connect(dest);
+  src.start(when, sample.onset);
+  src.stop(when + hold + 0.5);
+}
+
+/** An output for sound scheduled ahead of time (the play-along), always through the limiter so its volume can change live. */
+export function scheduledOutput(): GainNode {
+  const ac = context();
+  const out = ac.createGain();
+  out.gain.value = volume;
+  out.connect(limiter!);
+  return out;
+}
+
+export type PianoSamples = Map<number, Sample>;
 
 interface NoteEvent {
   midi: number;
@@ -112,19 +139,7 @@ async function play(events: NoteEvent[]) {
   bus.gain.value = volume;
   bus.connect(volume > 1 ? limiter! : ac.destination);
 
-  for (const e of events) {
-    const base = nearest(e.midi);
-    const sample = samples.get(base)!;
-    const src = ac.createBufferSource();
-    src.buffer = sample.buffer;
-    src.playbackRate.value = 2 ** ((e.midi - base) / 12);
-    const g = ac.createGain();
-    g.gain.value = e.gain;
-    g.gain.setTargetAtTime(0, now + e.at + e.hold, 0.08);
-    src.connect(g).connect(bus);
-    src.start(now + e.at, sample.onset);
-    src.stop(now + e.at + e.hold + 0.5);
-  }
+  for (const e of events) pianoNote(samples, bus, e.midi, now + e.at, e.hold, e.gain);
 
   sleepAfter(Math.max(...events.map((e) => e.at + e.hold)) + IDLE_SECS);
 }
