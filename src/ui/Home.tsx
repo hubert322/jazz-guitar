@@ -1,12 +1,15 @@
 import { activeFacts, AREAS, type Area } from '../drills/facts';
+import { findExercise, SLOTS } from '../routine/routine';
 import { dayKey, type Progress, statusOf, streakDays } from '../srs/progress';
 import { KEY_CYCLE, MAJOR_KEYS } from '../theory/keys';
 import { noteName, pc } from '../theory/notes';
+import { doneToday } from './routineText';
 
 interface Props {
   progress: Progress;
   onStart: (area: Area | 'mix') => void;
   onPlay: () => void;
+  onRoutine: () => void;
   onStats: () => void;
   onKeys: (keys: number[]) => void;
 }
@@ -83,7 +86,29 @@ function Meter({ fluent, total }: { fluent: number; total: number }) {
   );
 }
 
-export function Home({ progress, onStart, onPlay, onStats, onKeys }: Props) {
+/** Today's three slots, ticked off as they're logged. */
+function TodayCard({ progress, onRoutine }: { progress: Progress; onRoutine: () => void }) {
+  const slots = SLOTS.map((s) => ({ ...s, exercise: findExercise(progress.routine, progress.routine.slots[s.id].exercise) }));
+  const filled = slots.filter((s) => s.exercise);
+  const done = filled.filter((s) => doneToday(s.exercise!)).length;
+  return (
+    <button type="button" className="card card-today" onClick={onRoutine}>
+      <div className="today-head">
+        <span className="card-title">Today's practice</span>
+        <span className="muted small">{filled.length === 0 ? 'Pick exercises' : `${done} of ${filled.length} done`}</span>
+      </div>
+      {slots.map((s) => (
+        <div key={s.id} className={`today-row ${s.exercise && doneToday(s.exercise) ? 'today-done' : ''}`}>
+          <span className="today-slot">{s.title}</span>
+          <span className="today-name">{s.exercise?.name ?? '—'}</span>
+          {s.exercise && doneToday(s.exercise) && <span className="today-tick">✓</span>}
+        </div>
+      ))}
+    </button>
+  );
+}
+
+export function Home({ progress, onStart, onPlay, onRoutine, onStats, onKeys }: Props) {
   const today = progress.days[dayKey()] ?? 0;
   const streak = streakDays(progress);
   return (
@@ -95,6 +120,8 @@ export function Home({ progress, onStart, onPlay, onStats, onKeys }: Props) {
           {streak > 0 && <> · {streak}-day streak</>}
         </p>
       </header>
+
+      <TodayCard progress={progress} onRoutine={onRoutine} />
 
       <KeyPicker progress={progress} onKeys={onKeys} />
 

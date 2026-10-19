@@ -1166,3 +1166,480 @@ button.slot:active {
   grid-auto-columns: 1fr;
   gap: 6px;
 }
+
+/* --- Routine ------------------------------------------------------------------------------- */
+
+.card-today {
+  width: 100%;
+  min-height: 0;
+  margin-bottom: 14px;
+  gap: 8px;
+  border: 2px solid var(--accent);
+}
+
+.today-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.today-row {
+  display: grid;
+  grid-template-columns: 72px 1fr auto;
+  gap: 8px;
+  font-size: 14px;
+  align-items: baseline;
+}
+
+.today-slot {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.today-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.today-done .today-name {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.today-tick,
+.done-mark {
+  color: var(--good);
+  font-weight: 700;
+}
+
+.routine,
+.session,
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+
+.rt-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rt-slot {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 12px 12px;
+}
+
+.slot-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.slot-title {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.slot-min {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.slot-empty {
+  margin: 6px 0 0;
+}
+
+.ex-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.ex-name {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.start-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.shelf-title {
+  margin: 12px 0 0;
+  font-size: 17px;
+}
+
+.shelf {
+  display: flex;
+  flex-direction: column;
+}
+
+.shelf .ex-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.new-ex {
+  margin-top: 12px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.ex-notes {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.45;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.ex-notes a {
+  color: var(--accent);
+}
+
+/* Bottom sheet */
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, #000 40%, transparent);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 10;
+}
+
+.sheet {
+  width: 100%;
+  max-width: 480px;
+  max-height: 85dvh;
+  overflow-y: auto;
+  background: var(--bg);
+  border-radius: 18px 18px 0 0;
+  padding: 8px 16px calc(20px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sheet-head h2 {
+  margin: 8px 0 0;
+  font-size: 20px;
+}
+
+.sheet-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.sheet .ctl-row .key-chip {
+  padding: 0 6px;
+  font-size: 14px;
+}
+
+.tempo-chart {
+  margin: 0;
+}
+
+.tempo-chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.tc-line {
+  fill: none;
+  stroke: var(--good);
+  stroke-width: 2;
+}
+
+.tc-clean {
+  fill: var(--good);
+}
+
+.tc-messy {
+  fill: var(--surface);
+  stroke: var(--warn);
+  stroke-width: 2;
+}
+
+.tc-goal {
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+/* Session */
+
+.slot-timer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.slot-timer .target-track {
+  flex: 1;
+  overflow: hidden;
+}
+
+.slot-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 1s linear;
+}
+
+.slot-fill.over {
+  background: var(--good);
+}
+
+.slot-over {
+  color: var(--good);
+  font-weight: 650;
+}
+
+.session-name h2 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+}
+
+.session-notes summary {
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.runner,
+.play-embedded {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+.runner-count {
+  margin: 0 auto;
+}
+
+.note-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 0 8px;
+}
+
+.note-big {
+  font-size: 88px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.note-dir {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.note-beats,
+.free-beats {
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.pass {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pass .bar {
+  flex-basis: 72px;
+  min-height: 80px;
+}
+
+.pass .ch-root {
+  font-size: 24px;
+}
+
+.cue {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px dashed var(--accent);
+}
+
+.cue-now {
+  font-size: 20px;
+  font-weight: 650;
+}
+
+.session-btns {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+}
+
+.done-btn {
+  background: var(--good);
+}
+
+.verdict {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.verdict p {
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+  margin: 8px 0;
+}
+
+.verdict .ghost-btn {
+  height: 52px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.verdict .link-btn {
+  margin: 0 auto;
+}
+
+.session-end {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 30dvh;
+  text-align: center;
+}
+
+.session-end h1 {
+  margin: 0;
+}
+
+/* Editor */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field-label {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+.field input,
+.field textarea {
+  font: inherit;
+  font-size: 16px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.field textarea {
+  resize: vertical;
+  line-height: 1.4;
+}
+
+.field input:focus,
+.field textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.editor .ctl-row .key-chip {
+  padding: 0 6px;
+}
+
+.save-btn {
+  height: 38px;
+  padding: 0 16px;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
+.save-btn:disabled {
+  opacity: 0.4;
+}
+
+.stepper-value {
+  flex: 1;
+  text-align: center;
+  color: var(--muted);
+}
+
+.stepper-value b {
+  font-size: 20px;
+  color: var(--text);
+}
+
+.delete-ex {
+  align-self: flex-start;
+  margin-top: 20px;
+}
+
+.line-next .pass .bar {
+  min-height: 0;
+  padding: 8px;
+}
+
+.line-next .pass .ch-root {
+  font-size: 18px;
+}
+
+.slot-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.session-btns {
+  position: sticky;
+  bottom: 0;
+  padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+  background: var(--bg);
+}

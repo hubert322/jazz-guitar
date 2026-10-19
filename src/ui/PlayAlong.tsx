@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { BARS_PER_CYCLE, type Cycle, cycleBars, type Mode, nextCycle } from '../play/cycles';
-import { BPM_MAX, BPM_MIN, type PlaySettings, REPEATS } from '../srs/progress';
+import { type PlaySettings, REPEATS } from '../srs/progress';
 import { type Chord, QUALITY_SYMBOL } from '../theory/chords';
 import { keyName } from '../theory/keys';
 import { noteName } from '../theory/notes';
 import { bebopB9b13, plainSpelling } from '../theory/scales';
 import { type Beat, createPlayer } from './metronome';
 import { VolumeStepper } from './questions';
+import { TempoControl } from './TempoControl';
+import { useWakeLock } from './wakeLock';
 
 interface Props {
   keys: number[];
@@ -15,6 +17,8 @@ interface Props {
   onPlay: (play: PlaySettings) => void;
   onVolume: (volume: number) => void;
   onExit: () => void;
+  /** Inside a routine session, which has its own header. */
+  embedded?: boolean;
 }
 
 const MODES: { id: Mode; label: string }[] = [
@@ -22,8 +26,6 @@ const MODES: { id: Mode; label: string }[] = [
   { id: 'minor', label: 'Minor' },
   { id: 'mix', label: 'Both' },
 ];
-
-const clampBpm = (bpm: number) => Math.round(Math.min(BPM_MAX, Math.max(BPM_MIN, bpm)));
 
 /** The random keys ahead, made as they're needed and kept so the screen and the audio agree. */
 function useCycles(keys: number[], mode: Mode, repeat: number) {
@@ -119,31 +121,13 @@ function Peek({ cycle }: { cycle: Cycle }) {
   );
 }
 
-/** Keeps the screen on while playing; Android drops the lock whenever the app is hidden. */
-function useWakeLock(on: boolean) {
-  useEffect(() => {
-    if (!on || !('wakeLock' in navigator)) return;
-    let lock: WakeLockSentinel | null = null;
-    let done = false;
-    navigator.wakeLock
-      .request('screen')
-      .then((l) => (done ? void l.release() : (lock = l)))
-      .catch(() => {});
-    return () => {
-      done = true;
-      void lock?.release();
-    };
-  }, [on]);
-}
-
-export function PlayAlong({ keys, play, volume, onPlay, onVolume, onExit }: Props) {
+export function PlayAlong({ keys, play, volume, onPlay, onVolume, onExit, embedded }: Props) {
   const { at, repick, locked } = useCycles(keys, play.mode, play.repeat);
   const [running, setRunning] = useState(false);
   const [beat, setBeat] = useState<Beat | null>(null);
   /** The cycle on screen while stopped, and where the next start begins. */
   const [home, setHome] = useState(0);
   const [peek, setPeek] = useState(false);
-  const taps = useRef<number[]>([]);
 
   const current = running && beat ? Math.floor(beat.bar / BARS_PER_CYCLE) : home;
   const currentRef = useRef(current);
@@ -205,24 +189,17 @@ export function PlayAlong({ keys, play, volume, onPlay, onVolume, onExit }: Prop
 
   const set = (patch: Partial<PlaySettings>) => onPlay({ ...play, ...patch });
 
-  const tap = () => {
-    const now = performance.now();
-    const recent = [...taps.current.filter((t) => now - t < 2500), now].slice(-5);
-    taps.current = recent;
-    if (recent.length < 2) return;
-    const gap = (recent.at(-1)! - recent[0]) / (recent.length - 1);
-    set({ bpm: clampBpm(60000 / gap) });
-  };
-
   return (
-    <div className="screen play">
-      <header className="drill-head">
-        <button type="button" className="icon-btn" onClick={onExit} aria-label="Back">
-          ←
-        </button>
-        <div className="drill-title">ii–V–I play-along</div>
-        <VolumeStepper volume={volume} onVolume={onVolume} />
-      </header>
+    <div className={embedded ? 'play play-embedded' : 'screen play'}>
+      {!embedded && (
+        <header className="drill-head">
+          <button type="button" className="icon-btn" onClick={onExit} aria-label="Back">
+            ←
+          </button>
+          <div className="drill-title">ii–V–I play-along</div>
+          <VolumeStepper volume={volume} onVolume={onVolume} />
+        </header>
+      )}
 
       <CycleLine cycle={at(current)} at={running ? beat : null} clicks={play.clicks} repeat={play.repeat} />
       <CycleLine cycle={at(current + 1)} at={null} clicks={play.clicks} repeat={play.repeat} next />
@@ -246,29 +223,7 @@ export function PlayAlong({ keys, play, volume, onPlay, onVolume, onExit }: Prop
           {running ? '■ Stop' : '▶ Start'}
         </button>
 
-        <div className="ctl-row tempo">
-          <button type="button" className="key-chip" aria-label="Slower" onClick={() => set({ bpm: clampBpm(play.bpm - 2) })}>
-            −
-          </button>
-          <span className="bpm">
-            <b>{play.bpm}</b> BPM
-          </span>
-          <button type="button" className="key-chip" aria-label="Faster" onClick={() => set({ bpm: clampBpm(play.bpm + 2) })}>
-            +
-          </button>
-          <button type="button" className="key-chip tap" onPointerDown={tap}>
-            Tap
-          </button>
-        </div>
-        <input
-          type="range"
-          className="bpm-slider"
-          aria-label="Tempo"
-          min={BPM_MIN}
-          max={BPM_MAX}
-          value={play.bpm}
-          onChange={(e) => set({ bpm: Number(e.target.value) })}
-        />
+        <TempoControl bpm={play.bpm} onBpm={(bpm) => set({ bpm })} />
 
         <div className="ctl-row">
           <span className="ctl-label">Click on</span>

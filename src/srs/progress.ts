@@ -1,4 +1,6 @@
 import type { Mode } from '../play/cycles';
+import { BPM_MAX, BPM_MIN } from '../play/tempo';
+import { cleanRoutine, practicedDays, type Routine, seedRoutine } from '../routine/routine';
 import { KEY_CYCLE } from '../theory/keys';
 
 /** Per-fact practice history, kept small because it's saved after every answer. */
@@ -40,8 +42,7 @@ export interface PlaySettings {
   repeat: number;
 }
 
-export const BPM_MIN = 40;
-export const BPM_MAX = 240;
+export { BPM_MAX, BPM_MIN };
 export const REPEATS = [1, 2, 4];
 
 const defaultPlay = (): PlaySettings => ({ bpm: 100, clicks: [false, true, false, true], piano: true, mode: 'minor', repeat: 1 });
@@ -64,11 +65,12 @@ export interface Progress {
   /** answers per local date, "YYYY-MM-DD" */
   days: Record<string, number>;
   settings: Settings;
+  routine: Routine;
 }
 
 const STORAGE_KEY = 'changes:v1';
 
-export const emptyProgress = (): Progress => ({ v: 1, facts: {}, days: {}, settings: { vibrate: true, keys: KEY_CYCLE, volume: 1, play: defaultPlay() } });
+export const emptyProgress = (): Progress => ({ v: 1, facts: {}, days: {}, settings: { vibrate: true, keys: KEY_CYCLE, volume: 1, play: defaultPlay() }, routine: seedRoutine() });
 
 export function loadProgress(): Progress {
   try {
@@ -80,7 +82,7 @@ export function loadProgress(): Progress {
     if (!Array.isArray(settings.keys) || settings.keys.length === 0) settings.keys = KEY_CYCLE;
     if (!VOLUMES.includes(settings.volume)) settings.volume = 1;
     settings.play = cleanPlay(parsed.settings?.play);
-    return { ...emptyProgress(), ...parsed, settings };
+    return { ...emptyProgress(), ...parsed, settings, routine: cleanRoutine(parsed.routine) };
   } catch {
     return emptyProgress();
   }
@@ -143,12 +145,17 @@ export function combineStatus(statuses: Status[]): Status {
   return 'learning';
 }
 
-/** Consecutive days with practice, counting back from today (or yesterday if nothing yet today). */
+/**
+ * Consecutive days with practice (drill answers or routine exercises), counting back from today
+ * (or yesterday if nothing yet today).
+ */
 export function streakDays(p: Progress, now = new Date()): number {
+  const routineDays = practicedDays(p.routine);
+  const practiced = (day: Date) => !!p.days[dayKey(day)] || routineDays.has(dayKey(day));
   const d = new Date(now);
-  if (!p.days[dayKey(d)]) d.setDate(d.getDate() - 1);
+  if (!practiced(d)) d.setDate(d.getDate() - 1);
   let streak = 0;
-  while (p.days[dayKey(d)]) {
+  while (practiced(d)) {
     streak++;
     d.setDate(d.getDate() - 1);
   }

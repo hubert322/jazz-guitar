@@ -7,22 +7,23 @@ import { context, loadClick, loadPiano, type PianoSamples, pianoNote, scheduledO
 
 export interface PlayerOptions {
   bpm: number;
-  /** Which of beats 1–4 click. */
+  /** Which beats of the bar click, one flag per beat. */
   clicks: boolean[];
   /** Piano chord on beat 1 of every bar. */
   piano: boolean;
   volume: number;
+  /** 4 unless set. */
+  beatsPerBar?: number;
 }
 
 export interface Beat {
   bar: number;
-  /** 0..3 */
+  /** 0 up to beats per bar − 1 */
   beat: number;
   /** The bar of clicks before the form starts. */
   countIn: boolean;
 }
 
-const BEATS_PER_BAR = 4;
 /** Schedule this far ahead, in seconds. */
 const LOOKAHEAD = 0.15;
 const TICK_MS = 25;
@@ -46,10 +47,10 @@ function strum(samples: PianoSamples, out: AudioNode, chord: Chord, when: number
 }
 
 /**
- * `chordAt(bar)` is asked for each bar just before it plays; `onBeat` hears about each beat as it
+ * `chordAt(bar)` is asked for each bar just before it plays (null for no chord); `onBeat` hears about each beat as it
  * sounds. Options can change while playing and apply from the next beat.
  */
-export function createPlayer(chordAt: (bar: number) => Chord, onBeat: (b: Beat) => void) {
+export function createPlayer(chordAt: (bar: number) => Chord | null, onBeat: (b: Beat) => void) {
   let opts: PlayerOptions | null = null;
   let out: GainNode | null = null;
   let timer: ReturnType<typeof setInterval> | undefined;
@@ -78,11 +79,13 @@ export function createPlayer(chordAt: (bar: number) => Chord, onBeat: (b: Beat) 
     const tick = () => {
       const o = opts!;
       while (t < ac.currentTime + LOOKAHEAD) {
+        const beats = o.beatsPerBar ?? 4;
         if (countIn || o.clicks[beat]) click(clickSample, output, t, beat === 0);
-        if (!countIn && beat === 0 && o.piano) strum(samples, output, chordAt(bar), t, (BEATS_PER_BAR * 60) / o.bpm);
+        const chord = !countIn && beat === 0 && o.piano ? chordAt(bar) : null;
+        if (chord) strum(samples, output, chord, t, (beats * 60) / o.bpm);
         queue.push({ time: t, bar, beat, countIn });
         t += 60 / o.bpm;
-        if (++beat === BEATS_PER_BAR) {
+        if (++beat >= beats) {
           beat = 0;
           if (countIn) countIn = false;
           else bar++;
