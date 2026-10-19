@@ -3,7 +3,7 @@
 // and reports each beat to the screen when it's actually heard.
 
 import { type Chord, chordPitches } from '../theory/chords';
-import { context, loadPiano, type PianoSamples, pianoNote, scheduledOutput, sleepAfter } from './sound';
+import { context, loadClick, loadPiano, type PianoSamples, pianoNote, scheduledOutput, sleepAfter } from './sound';
 
 export interface PlayerOptions {
   bpm: number;
@@ -27,20 +27,16 @@ const BEATS_PER_BAR = 4;
 const LOOKAHEAD = 0.15;
 const TICK_MS = 25;
 
-/** A short woodblock-ish tick, higher on beat 1. */
-function click(out: AudioNode, when: number, accent: boolean) {
+/** The woodblock sample, a fifth higher and louder on beat 1. */
+function click(sample: AudioBuffer, out: AudioNode, when: number, accent: boolean) {
   const ac = out.context;
-  const osc = ac.createOscillator();
-  osc.type = 'triangle';
-  osc.frequency.setValueAtTime(accent ? 2000 : 1400, when);
-  osc.frequency.exponentialRampToValueAtTime(accent ? 1000 : 700, when + 0.03);
+  const src = ac.createBufferSource();
+  src.buffer = sample;
+  src.playbackRate.value = accent ? 1.5 : 1;
   const g = ac.createGain();
-  g.gain.setValueAtTime(0.0001, when);
-  g.gain.exponentialRampToValueAtTime(accent ? 0.9 : 0.6, when + 0.002);
-  g.gain.exponentialRampToValueAtTime(0.0001, when + 0.06);
-  osc.connect(g).connect(out);
-  osc.start(when);
-  osc.stop(when + 0.07);
+  g.gain.value = accent ? 0.9 : 0.6;
+  src.connect(g).connect(out);
+  src.start(when);
 }
 
 function strum(samples: PianoSamples, out: AudioNode, chord: Chord, when: number, barSecs: number) {
@@ -65,7 +61,7 @@ export function createPlayer(chordAt: (bar: number) => Chord, onBeat: (b: Beat) 
     const mine = run;
     opts = options;
     const ac = context();
-    const samples = await loadPiano();
+    const [samples, clickSample] = await Promise.all([loadPiano(), loadClick()]);
     if (mine !== run) return;
 
     const output = scheduledOutput();
@@ -82,7 +78,7 @@ export function createPlayer(chordAt: (bar: number) => Chord, onBeat: (b: Beat) 
     const tick = () => {
       const o = opts!;
       while (t < ac.currentTime + LOOKAHEAD) {
-        if (countIn || o.clicks[beat]) click(output, t, beat === 0);
+        if (countIn || o.clicks[beat]) click(clickSample, output, t, beat === 0);
         if (!countIn && beat === 0 && o.piano) strum(samples, output, chordAt(bar), t, (BEATS_PER_BAR * 60) / o.bpm);
         queue.push({ time: t, bar, beat, countIn });
         t += 60 / o.bpm;

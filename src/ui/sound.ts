@@ -32,14 +32,21 @@ function onsetOf(buffer: AudioBuffer): number {
   return Math.max(0, first / buffer.sampleRate - 0.0005);
 }
 
-/** Fetches and decodes the samples once. Decoding needs no live audio, so this can run before any tap. */
+/** Decoding needs no live audio, so samples can load before any tap. */
+let decoder: OfflineAudioContext | null = null;
+
+async function fetchAudio(path: string): Promise<AudioBuffer> {
+  decoder ??= new OfflineAudioContext(1, 1, 44100);
+  const data = await fetch(`${import.meta.env.BASE_URL}${path}`).then((r) => r.arrayBuffer());
+  return decoder.decodeAudioData(data);
+}
+
+/** Fetches and decodes the samples once. */
 export function loadPiano(): Promise<Map<number, Sample>> {
   loading ??= (async () => {
-    const decoder = new OfflineAudioContext(1, 1, 44100);
     const entries = await Promise.all(
       SAMPLES.map(async (midi) => {
-        const data = await fetch(`${import.meta.env.BASE_URL}piano/${midi}.mp3`).then((r) => r.arrayBuffer());
-        const buffer = await decoder.decodeAudioData(data);
+        const buffer = await fetchAudio(`piano/${midi}.mp3`);
         return [midi, { buffer, onset: onsetOf(buffer) }] as const;
       }),
     );
@@ -47,6 +54,15 @@ export function loadPiano(): Promise<Map<number, Sample>> {
   })();
   loading.catch(() => (loading = null));
   return loading;
+}
+
+let clickLoading: Promise<AudioBuffer> | null = null;
+
+/** The metronome's woodblock tick (public/metronome.wav), fetched and decoded once. */
+export function loadClick(): Promise<AudioBuffer> {
+  clickLoading ??= fetchAudio('metronome.wav');
+  clickLoading.catch(() => (clickLoading = null));
+  return clickLoading;
 }
 
 export function sleepAfter(secs = IDLE_SECS) {
