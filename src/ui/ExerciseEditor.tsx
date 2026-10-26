@@ -1,7 +1,8 @@
 import { type ReactNode, useState } from 'react';
 import type { Mode } from '../play/cycles';
 import { clampBpm } from '../play/tempo';
-import { BARS_EACH, BEATS_EACH, type Exercise, type Progression, type Prompt } from '../routine/routine';
+import { BARS_EACH, BEATS_EACH, changeStage, type Exercise, type Progression, type Prompt } from '../routine/routine';
+import { StagePicker } from './StagePicker';
 import { TempoControl } from './TempoControl';
 
 interface Props {
@@ -14,13 +15,13 @@ interface Props {
 
 const KINDS: { id: Prompt['kind']; label: string }[] = [
   { id: 'none', label: 'Nothing' },
-  { id: 'notes', label: 'Notes' },
+  { id: 'notes', label: 'Fretboard' },
   { id: 'chords', label: 'Chords' },
 ];
 
 const DEFAULT_PROMPT: Record<'none' | 'notes' | 'chords', Prompt> = {
   none: { kind: 'none' },
-  notes: { kind: 'notes', set: 'naturals', beatsEach: 6 },
+  notes: { kind: 'notes', stage: 1, beatsEach: 6, bpms: {} },
   chords: { kind: 'chords', progression: 'iiVI', mode: 'major', barsEach: 1 },
 };
 
@@ -77,6 +78,11 @@ export function ExerciseEditor({ exercise, isNew, onSave, onDelete, onCancel }: 
         <textarea rows={4} value={e.notes} onChange={(ev) => set({ notes: ev.target.value })} placeholder="What to play, what to listen for, links" />
       </label>
 
+      <label className="toggle">
+        <input type="checkbox" checked={e.timed} onChange={(ev) => set({ timed: ev.target.checked })} />
+        Timed: count down the slot's minutes
+      </label>
+
       <section className="field">
         <span className="field-label">While playing, show</span>
         {p.kind === 'playAlong' ? (
@@ -86,15 +92,9 @@ export function ExerciseEditor({ exercise, isNew, onSave, onDelete, onCancel }: 
             <Seg label="Show" value={p.kind} options={KINDS} onChange={(k) => k !== p.kind && set({ prompt: DEFAULT_PROMPT[k as keyof typeof DEFAULT_PROMPT] })} />
             {p.kind === 'notes' && (
               <>
-                <Seg
-                  label="Notes"
-                  value={p.set}
-                  options={[
-                    { id: 'naturals' as const, label: '7 naturals' },
-                    { id: 'all' as const, label: 'All 12' },
-                  ]}
-                  onChange={(v) => setPrompt({ set: v })}
-                />
+                <StagePicker stage={p.stage} onStage={(v) => setE((x) => changeStage(x, v))}>
+                  Each stage keeps its own tempo. You can also change stage while playing.
+                </StagePicker>
                 <Seg label="Beats each" value={p.beatsEach} options={BEATS_EACH.map((n) => ({ id: n, label: n }))} onChange={(v) => setPrompt({ beatsEach: v })} />
               </>
             )}

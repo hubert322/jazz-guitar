@@ -1,12 +1,27 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { chordPass, type ChordBar, goesUp, nextCue, noteRound } from '../routine/prompts';
-import { assign, type Exercise, findExercise, logResult, type Routine, SLOTS, tempoAdvice, updateExercise } from '../routine/routine';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { chordPass, type ChordBar, goesUp, nextCue, noteRound, setSize } from '../routine/prompts';
+import {
+  assign,
+  type Exercise,
+  findExercise,
+  FRET_STAGES,
+  fretStage,
+  logResult,
+  MINUTES,
+  type Routine,
+  setStage,
+  SLOTS,
+  stageOf,
+  tempoAdvice,
+  updateExercise,
+} from '../routine/routine';
 import { dayKey, type PlaySettings } from '../srs/progress';
 import { type Chord, QUALITY_SYMBOL } from '../theory/chords';
 import { type Note, noteName } from '../theory/notes';
 import { nudge } from './feedback';
 import { type Beat, createPlayer } from './metronome';
 import { PlayAlong } from './PlayAlong';
+import { StagePicker } from './StagePicker';
 import { VolumeStepper } from './questions';
 import { Notes } from './routineText';
 import { TempoControl } from './TempoControl';
@@ -30,14 +45,33 @@ type Phase =
   | { name: 'goal'; bpm: number }
   | { name: 'end' };
 
-/** Seconds since `start`, ticking once a second. */
-function useElapsed(start: number) {
+/** Seconds counted while running, starting paused. */
+function useStopwatch() {
+  /** Milliseconds counted before the current run. */
+  const [banked, setBanked] = useState(0);
+  const [since, setSince] = useState<number | null>(null);
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
+    if (since === null) return;
+    const id = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(id);
-  }, []);
-  return Math.max(0, Math.floor((now - start) / 1000));
+  }, [since]);
+  const toggle = () => {
+    const t = Date.now();
+    if (since === null) setSince(t);
+    else {
+      setBanked(banked + t - since);
+      setSince(null);
+    }
+    setNow(t);
+  };
+  /** Back to 0:00, paused. */
+  const reset = () => {
+    setBanked(0);
+    setSince(null);
+  };
+  const ms = banked + (since === null ? 0 : Math.max(0, now - since));
+  return { secs: Math.floor(ms / 1000), running: since !== null, toggle, reset };
 }
 
 const clock = (secs: number) => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
@@ -47,7 +81,6 @@ export function Session({ routine, keys, play, volume, onRoutine, onPlay, onVolu
   const [order] = useState(() => SLOTS.filter((s) => routine.slots[s.id].exercise));
   const [step, setStep] = useState(0);
   const [phase, setPhase] = useState<Phase>({ name: 'run' });
-  const [startedAt, setStartedAt] = useState(Date.now);
   /** Tempo the metronome last ran at in this slot, if it ran. */
   const ran = useRef<number | null>(null);
   const [done, setDone] = useState(0);
@@ -62,7 +95,6 @@ export function Session({ routine, keys, play, volume, onRoutine, onPlay, onVolu
     else {
       setStep(step + 1);
       setPhase({ name: 'run' });
-      setStartedAt(Date.now());
       ran.current = null;
     }
   };
@@ -71,7 +103,8 @@ export function Session({ routine, keys, play, volume, onRoutine, onPlay, onVolu
 
   const log = (clean: boolean) => {
     if (!exercise || phase.name !== 'log') return;
-    const entry = { d: dayKey(), bpm: phase.bpm, clean };
+    const stage = stageOf(exercise);
+    const entry = { d: dayKey(), bpm: phase.bpm, clean, ...(stage && { stage }) };
     const logged = { ...exercise, log: [...exercise.log, entry] };
     onRoutine((r) => logResult(r, exercise.id, entry));
     setDone((n) => n + 1);
@@ -106,15 +139,16 @@ export function Session({ routine, keys, play, volume, onRoutine, onPlay, onVolu
   }
 
   const minutes = routine.slots[slot.id].minutes;
+  const stage = stageOf(exercise);
 
   return (
     <div className="screen session">
       <SlotStrip
+        key={step}
         title={slot.title}
         step={step}
         count={order.length}
-        startedAt={startedAt}
-        minutes={minutes}
+        minutes={exercise.timed ? minutes : null}
         volume={volume}
         onVolume={onVolume}
         onExit={onExit}
@@ -134,11 +168,12 @@ export function Session({ routine, keys, play, volume, onRoutine, onPlay, onVolu
           <PlayAlong keys={keys} play={play} volume={volume} onPlay={onPlay} onVolume={onVolume} onExit={onExit} embedded />
         ) : (
           <ExerciseRunner
-            key={exercise.id}
+            key={`${exercise.id}:${stage}`}
             exercise={exercise}
             keys={keys}
             volume={volume}
             onPatch={(patch) => onRoutine((r) => updateExercise(r, exercise.id, patch))}
+            onStage={(n) => onRoutine((r) => setStage(r, exercise.id, n))}
             onRun={(bpm) => (ran.current = bpm)}
           />
         ))}
@@ -188,7 +223,28 @@ export function Session({ routine, keys, play, volume, onRoutine, onPlay, onVolu
         </div>
       )}
 
-      {phase.name === 'goal' && (
+      {phase.name === 'goal' && stage && stage < FRET_STAGES.length && (
+        <div className="verdict">
+          <p>
+            Clean at {phase.bpm} on stage {stage}: that's your goal. Move on to stage {stage + 1}, {fretStage(stage + 1).title.toLowerCase()}?
+          </p>
+          <button
+            type="button"
+            className="start-btn"
+            onClick={() => {
+              onRoutine((r) => setStage(r, exercise.id, stage + 1));
+              next();
+            }}
+          >
+            Stage {stage + 1} next time
+          </button>
+          <button type="button" className="ghost-btn" onClick={next}>
+            Stay on stage {stage}
+          </button>
+        </div>
+      )}
+
+      {phase.name === 'goal' && !(stage && stage < FRET_STAGES.length) && (
         <div className="verdict">
           <p>
             Clean at {phase.bpm}: that's your goal. Put this back on the shelf and pick something new for {slot.title}?
@@ -216,8 +272,7 @@ function SlotStrip({
   title,
   step,
   count,
-  startedAt,
-  minutes,
+  minutes: initialMinutes,
   volume,
   onVolume,
   onExit,
@@ -225,15 +280,18 @@ function SlotStrip({
   title: string;
   step: number;
   count: number;
-  startedAt: number;
-  minutes: number;
+  /** The slot's minutes to start from, or null for an untimed exercise. Changeable for this session. */
+  minutes: number | null;
   volume: number;
   onVolume: (v: number) => void;
   onExit: () => void;
 }) {
-  const secs = useElapsed(startedAt);
-  const target = minutes * 60;
-  const over = secs >= target;
+  const [minutes, setMinutes] = useState(initialMinutes);
+  const [picking, setPicking] = useState(false);
+  const timer = useStopwatch();
+  const secs = timer.secs;
+  const target = (minutes ?? 0) * 60;
+  const over = minutes !== null && secs >= target;
   const buzzed = useRef(false);
   useEffect(() => {
     if (over && !buzzed.current) nudge();
@@ -251,14 +309,59 @@ function SlotStrip({
         </div>
         <VolumeStepper volume={volume} onVolume={onVolume} />
       </div>
-      <div className="slot-timer">
-        <div className="target-track">
-          <div className={`slot-fill ${over ? 'over' : ''}`} style={{ width: `${Math.min(1, secs / target) * 100}%` }} />
+      {minutes === null && !picking && (
+        <div className="slot-timer">
+          <button type="button" className="link-btn timer-add" onClick={() => setPicking(true)}>
+            + Add a timer
+          </button>
         </div>
-        <span className={`small ${over ? 'slot-over' : 'muted'}`}>
-          {clock(secs)} / {minutes}:00
-        </span>
-      </div>
+      )}
+      {minutes !== null && !picking && (
+        <div className="slot-timer">
+          <button
+            type="button"
+            className={`key-chip timer-btn ${timer.running ? '' : 'on'}`}
+            onClick={timer.toggle}
+            aria-label={timer.running ? 'Pause timer' : secs > 0 ? 'Resume timer' : 'Start timer'}
+          >
+            {timer.running ? '❚❚' : '▶'}
+          </button>
+          <div className="target-track">
+            <div className={`slot-fill ${over ? 'over' : ''}`} style={{ width: `${Math.min(1, secs / target) * 100}%` }} />
+          </div>
+          <button
+            type="button"
+            className={`timer-time small ${over ? 'slot-over' : 'muted'}`}
+            onClick={() => setPicking(true)}
+            aria-label={`${clock(secs)} of ${minutes} minutes. Change the timer`}
+          >
+            {clock(secs)} / {minutes}:00
+          </button>
+          {(secs > 0 || timer.running) && (
+            <button type="button" className="key-chip timer-btn" onClick={timer.reset} aria-label="Reset timer">
+              ↺
+            </button>
+          )}
+        </div>
+      )}
+      {picking && (
+        <div className="seg timer-picker" role="group" aria-label="Timer for this slot">
+          {[...MINUTES, null].map((m) => (
+            <button
+              type="button"
+              key={m ?? 'none'}
+              className={`key-chip timer-pick ${minutes === m ? 'on' : ''}`}
+              aria-pressed={minutes === m}
+              onClick={() => {
+                setMinutes(m);
+                setPicking(false);
+              }}
+            >
+              {m === null ? 'None' : `${m} min`}
+            </button>
+          ))}
+        </div>
+      )}
     </header>
   );
 }
@@ -273,7 +376,8 @@ function useSequence(exercise: Exercise, keys: number[]) {
 
   const noteAt = (bar: number): Note => {
     if (p.kind !== 'notes') throw new Error('not a notes prompt');
-    while (notes.current.length <= bar) notes.current.push(...noteRound(p.set, notes.current.at(-1) ?? null));
+    const { set } = fretStage(p.stage);
+    while (notes.current.length <= bar) notes.current.push(...noteRound(set, notes.current.at(-1) ?? null));
     return notes.current[bar];
   };
 
@@ -317,16 +421,25 @@ function ExerciseRunner({
   keys,
   volume,
   onPatch,
+  onStage,
   onRun,
 }: {
   exercise: Exercise;
   keys: number[];
   volume: number;
   onPatch: (patch: Partial<Exercise>) => void;
+  onStage: (stage: number) => void;
   onRun: (bpm: number) => void;
 }) {
   const p = exercise.prompt;
+  const stage = p.kind === 'notes' ? fretStage(p.stage) : null;
   const seq = useSequence(exercise, keys);
+  /** Stages that move on by hand: the note you're on (stages 1–3), or the pair (stage 4). */
+  const [held, setHeld] = useState(0);
+  /** Clean times in a row on this note (stage 1). */
+  const [reps, setReps] = useState(0);
+  /** Every note of the round is done (stages 1–3), until you go through again. */
+  const [finished, setFinished] = useState(false);
   const [running, setRunning] = useState(false);
   const [beat, setBeat] = useState<Beat | null>(null);
   /** Where the next start begins, and what shows while stopped. */
@@ -350,9 +463,14 @@ function ExerciseRunner({
     if (running) onRun(exercise.bpm);
   }, [running, exercise.bpm]);
 
+  /** Notes in a round of this stage; stages 5–7 play one round in order, then stop. */
+  const size = stage ? setSize(stage.set) : 0;
+  const roundEnd = useRef(0);
+
   const start = () => {
     setBeat(null);
     setRunning(true);
+    if (size) roundEnd.current = (Math.floor(home / size) + 1) * size;
     void player.current!.start(home, options);
   };
 
@@ -372,18 +490,99 @@ function ExerciseRunner({
     return () => document.removeEventListener('visibilitychange', onHide);
   }, [running]);
 
+  useEffect(() => {
+    if (stage?.play !== 'round' || !running || !beat || beat.countIn || beat.bar < roundEnd.current) return;
+    stop();
+    setFinished(true);
+  }, [beat]);
+
   const at = running ? beat : null;
+  const roundStart = size ? Math.floor(bar / size) * size : 0;
   const passIndex = p.kind === 'chords' ? seq.passOf(bar) : null;
   const cue = seq.cueAt(bar);
   const cueNext = exercise.cues.length > 1 ? seq.cueAt((Math.floor(bar / exercise.cueEvery) + 1) * exercise.cueEvery) : null;
 
   return (
     <div className="runner">
+      {p.kind === 'notes' && <StagePicker stage={p.stage} onStage={onStage} />}
+
       <div className="count-in runner-count" style={{ visibility: at?.countIn ? 'visible' : 'hidden' }}>
         Count-in {(at?.beat ?? 0) + 1}
       </div>
 
-      {p.kind === 'notes' && <NotePrompt note={seq.noteAt(bar)} up={goesUp(bar)} next={seq.noteAt(bar + 1)} beats={beatsPerBar} at={at} />}
+      {finished && stage && (
+        <Finished again={stage.play === 'round' ? '↻ Again, new order' : '↻ Go through again'} onAgain={() => setFinished(false)}>
+          All {size} {stage.play === 'round' ? 'in a row' : stage.play === 'reps' ? 'notes, twice' : 'notes'}.
+        </Finished>
+      )}
+
+      {!finished && stage?.play === 'reps' && (
+        <RepsPrompt
+          note={seq.noteAt(held)}
+          index={held}
+          size={setSize(stage.set)}
+          reps={reps}
+          onClean={() => {
+            if (reps + 1 < REPS) return setReps(reps + 1);
+            setReps(0);
+            setHeld(held + 1);
+            if ((held + 1) % (setSize(stage.set) * ROUNDS) === 0) setFinished(true);
+          }}
+          onMistake={() => setReps(0)}
+        />
+      )}
+
+      {!finished && stage?.play === 'hold' && (
+        <>
+          <NotePrompt note={seq.noteAt(held)} up={goesUp(bar)} beats={beatsPerBar} at={at}>
+            Note {(held % setSize(stage.set)) + 1} of {setSize(stage.set)}
+            {(held + 1) % setSize(stage.set) === 0 ? ' · the last one' : ` · then ${noteName(seq.noteAt(held + 1))}`}
+          </NotePrompt>
+          <div className="peek-btns">
+            {(held + 1) % setSize(stage.set) === 0 ? (
+              <button
+                type="button"
+                className="ghost-btn"
+                onClick={() => {
+                  if (running) stop();
+                  setHeld(held + 1);
+                  setFinished(true);
+                }}
+              >
+                ✓ All {setSize(stage.set)} clean
+              </button>
+            ) : (
+              <button type="button" className="ghost-btn" onClick={() => setHeld(held + 1)}>
+                Next note →
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
+      {stage?.play === 'pair' && (
+        <>
+          <PairPrompt first={seq.noteAt(2 * held)} second={seq.noteAt(2 * held + 1)} up={goesUp(bar)} beats={beatsPerBar} at={at} />
+          <div className="peek-btns">
+            <button type="button" className="ghost-btn" onClick={() => setHeld(held + 1)}>
+              New pair →
+            </button>
+          </div>
+        </>
+      )}
+
+      {!finished && stage?.play === 'round' && (
+        <>
+          <OrderPrompt notes={Array.from({ length: size }, (_, i) => seq.noteAt(roundStart + i))} pos={bar - roundStart} beats={beatsPerBar} at={at} />
+          {!running && (
+            <div className="peek-btns">
+              <button type="button" className="ghost-btn" onClick={() => setHome(roundStart + size)}>
+                New order →
+              </button>
+            </div>
+          )}
+        </>
+      )}
 
       {passIndex !== null && (
         <>
@@ -415,49 +614,156 @@ function ExerciseRunner({
         </div>
       )}
 
-      <div className="play-controls">
-        <button type="button" className={`start-btn ${running ? 'stop' : ''}`} onClick={running ? stop : start}>
-          {running ? '■ Stop' : '▶ Start'}
-        </button>
-        <TempoControl bpm={exercise.bpm} onBpm={(bpm) => onPatch({ bpm })} />
-        {p.kind !== 'notes' && (
-          <div className="ctl-row">
-            <span className="ctl-label">Click on</span>
-            <div className="seg">
-              <button type="button" className={`key-chip ${!exercise.backbeat ? 'on' : ''}`} aria-pressed={!exercise.backbeat} onClick={() => onPatch({ backbeat: false })}>
-                Every beat
-              </button>
-              <button type="button" className={`key-chip ${exercise.backbeat ? 'on' : ''}`} aria-pressed={exercise.backbeat} onClick={() => onPatch({ backbeat: true })}>
-                2 & 4
-              </button>
+      {stage?.play !== 'reps' && !finished && (
+        <div className="play-controls">
+          <button type="button" className={`start-btn ${running ? 'stop' : ''}`} onClick={running ? stop : start}>
+            {running ? '■ Stop' : '▶ Start'}
+          </button>
+          <TempoControl bpm={exercise.bpm} onBpm={(bpm) => onPatch({ bpm })} />
+          {p.kind !== 'notes' && (
+            <div className="ctl-row">
+              <span className="ctl-label">Click on</span>
+              <div className="seg">
+                <button type="button" className={`key-chip ${!exercise.backbeat ? 'on' : ''}`} aria-pressed={!exercise.backbeat} onClick={() => onPatch({ backbeat: false })}>
+                  Every beat
+                </button>
+                <button type="button" className={`key-chip ${exercise.backbeat ? 'on' : ''}`} aria-pressed={exercise.backbeat} onClick={() => onPatch({ backbeat: true })}>
+                  2 & 4
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-        {p.kind === 'chords' && (
-          <label className="toggle">
-            <input type="checkbox" checked={exercise.piano} onChange={(e) => onPatch({ piano: e.target.checked })} />
-            Piano plays the chords
-          </label>
-        )}
-      </div>
+          )}
+          {p.kind === 'chords' && (
+            <label className="toggle">
+              <input type="checkbox" checked={exercise.piano} onChange={(e) => onPatch({ piano: e.target.checked })} />
+              Piano plays the chords
+            </label>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-function NotePrompt({ note, up, next, beats, at }: { note: Note; up: boolean; next: Note; beats: number; at: Beat | null }) {
+/** Clean times in a row before stage 1 moves to the next note. */
+const REPS = 3;
+/** Times through every note in stage 1. */
+const ROUNDS = 2;
+
+const Beats = ({ beats, at }: { beats: number; at: Beat | null }) => (
+  <div className="beats note-beats">
+    {Array.from({ length: beats }, (_, j) => (
+      <span key={j} className={`beat beat-click ${at && !at.countIn && j === at.beat ? 'beat-on' : ''}`} />
+    ))}
+  </div>
+);
+
+const direction = (up: boolean) => (up ? '↑ low E to high E' : '↓ high E to low E');
+
+function NotePrompt({ note, up, beats, at, children }: { note: Note; up: boolean; beats: number; at: Beat | null; children: ReactNode }) {
   return (
     <section className="note-prompt">
       <div className="note-big">{noteName(note)}</div>
-      <div className="note-dir">{up ? '↑ low E to high E' : '↓ high E to low E'}</div>
-      <div className="beats note-beats">
-        {Array.from({ length: beats }, (_, j) => (
-          <span key={j} className={`beat beat-click ${at && !at.countIn && j === at.beat ? 'beat-on' : ''}`} />
+      <div className="note-dir">{direction(up)}</div>
+      <Beats beats={beats} at={at} />
+      <div className="muted small">{children}</div>
+    </section>
+  );
+}
+
+/** Stage 4: the first note going up, the second coming down. */
+function PairPrompt({ first, second, up, beats, at }: { first: Note; second: Note; up: boolean; beats: number; at: Beat | null }) {
+  return (
+    <section className="note-prompt">
+      <div className="note-pair">
+        <span className={`note-big ${up ? '' : 'note-dim'}`}>
+          {noteName(first)}
+          <span className="note-arrow">↑</span>
+        </span>
+        <span className={`note-big ${up ? 'note-dim' : ''}`}>
+          {noteName(second)}
+          <span className="note-arrow">↓</span>
+        </span>
+      </div>
+      <div className="note-dir">{direction(up)}</div>
+      <Beats beats={beats} at={at} />
+    </section>
+  );
+}
+
+/** Stages 5–7: the whole order on show, the note you're on lit, each round starting upward. */
+function OrderPrompt({ notes, pos, beats, at }: { notes: Note[]; pos: number; beats: number; at: Beat | null }) {
+  return (
+    <section className="note-prompt">
+      <div className="note-big">{noteName(notes[pos])}</div>
+      <div className="note-dir">{direction(goesUp(pos))}</div>
+      <Beats beats={beats} at={at} />
+      <div className="order" aria-label={`Note ${pos + 1} of ${notes.length}`}>
+        {notes.map((n, i) => (
+          <span key={i} className={`order-note ${i < pos ? 'done' : ''} ${i === pos ? 'on' : ''}`}>
+            {noteName(n)}
+            <span className="note-arrow">{goesUp(i) ? '↑' : '↓'}</span>
+          </span>
         ))}
       </div>
-      <div className="muted small">
-        Next: {noteName(next)} {up ? '↓' : '↑'}
-      </div>
     </section>
+  );
+}
+
+/** The end of a round in stages 1–3 and 5–7: Done (below) logs it, or go through the notes again. */
+function Finished({ again, onAgain, children }: { again: string; onAgain: () => void; children: ReactNode }) {
+  return (
+    <section className="note-prompt finished">
+      <div className="note-big finished-mark">✓</div>
+      <p>
+        {children} Tap <b>Done</b> to log it.
+      </p>
+      <button type="button" className="ghost-btn" onClick={onAgain}>
+        {again}
+      </button>
+    </section>
+  );
+}
+
+/** Stage 1: no metronome. Three clean times on a note, then the next; every note twice. */
+function RepsPrompt({
+  note,
+  index,
+  size,
+  reps,
+  onClean,
+  onMistake,
+}: {
+  note: Note;
+  index: number;
+  size: number;
+  reps: number;
+  onClean: () => void;
+  onMistake: () => void;
+}) {
+  return (
+    <>
+      <section className="note-prompt">
+        <div className="note-big">{noteName(note)}</div>
+        <div className="note-dir">↑ low E to high E, then ↓ back</div>
+        <div className="beats note-beats" aria-label={`${reps} of ${REPS} clean`}>
+          {Array.from({ length: REPS }, (_, j) => (
+            <span key={j} className={`beat beat-click ${j < reps ? 'beat-on' : ''}`} />
+          ))}
+        </div>
+        <div className="muted small">
+          Note {(index % size) + 1} of {size} · round {Math.floor((index % (size * ROUNDS)) / size) + 1} of {ROUNDS}
+        </div>
+      </section>
+      <div className="rep-btns">
+        <button type="button" className="ghost-btn" onClick={onMistake}>
+          ✗ Mistake
+        </button>
+        <button type="button" className="start-btn" onClick={onClean}>
+          ✓ Clean
+        </button>
+      </div>
+    </>
   );
 }
 

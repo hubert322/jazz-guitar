@@ -1,6 +1,20 @@
 import { useState } from 'react';
 import { BPM_MAX, BPM_MIN } from '../play/tempo';
-import { assign, type Exercise, findExercise, MINUTES, type Routine, setMinutes, shelf, SLOTS, type SlotId, slotOf, tempoHistory } from '../routine/routine';
+import {
+  assign,
+  type Exercise,
+  findExercise,
+  MINUTES,
+  type Routine,
+  setMinutes,
+  shelf,
+  SLOTS,
+  type SlotId,
+  slotOf,
+  stageLog,
+  stageOf,
+  tempoHistory,
+} from '../routine/routine';
 import { daysAgo, doneToday, lastRun, Notes, promptSummary } from './routineText';
 
 interface Props {
@@ -14,8 +28,10 @@ interface Props {
 export function RoutineScreen({ routine, onRoutine, onStart, onEdit, onBack }: Props) {
   const [open, setOpen] = useState<string | null>(null);
   const opened = findExercise(routine, open);
-  const filled = SLOTS.some((s) => routine.slots[s.id].exercise);
-  const total = SLOTS.reduce((sum, s) => sum + (routine.slots[s.id].exercise ? routine.slots[s.id].minutes : 0), 0);
+  const inSlots = SLOTS.map((s) => ({ ...s, exercise: findExercise(routine, routine.slots[s.id].exercise) }));
+  const filled = inSlots.some((s) => s.exercise);
+  const total = inSlots.reduce((sum, s) => sum + (s.exercise?.timed ? routine.slots[s.id].minutes : 0), 0);
+  const untimed = inSlots.filter((s) => s.exercise && !s.exercise.timed).length;
 
   const cycleMinutes = (slot: SlotId) => {
     const now = MINUTES.indexOf(routine.slots[slot].minutes);
@@ -33,15 +49,18 @@ export function RoutineScreen({ routine, onRoutine, onStart, onEdit, onBack }: P
       </header>
 
       <div className="rt-slots">
-        {SLOTS.map(({ id, title }) => {
-          const e = findExercise(routine, routine.slots[id].exercise);
+        {inSlots.map(({ id, title, exercise: e }) => {
           return (
             <div key={id} className="rt-slot">
               <div className="slot-head">
                 <span className="slot-title">{title}</span>
-                <button type="button" className="key-chip slot-min" onClick={() => cycleMinutes(id)} aria-label={`${title} minutes`}>
-                  {routine.slots[id].minutes} min
-                </button>
+                {e && !e.timed ? (
+                  <span className="muted small">No timer</span>
+                ) : (
+                  <button type="button" className="key-chip slot-min" onClick={() => cycleMinutes(id)} aria-label={`${title} minutes`}>
+                    {routine.slots[id].minutes} min
+                  </button>
+                )}
               </div>
               {e ? (
                 <button type="button" className="ex-row" onClick={() => setOpen(e.id)}>
@@ -60,7 +79,7 @@ export function RoutineScreen({ routine, onRoutine, onStart, onEdit, onBack }: P
       </div>
 
       <button type="button" className="start-btn" disabled={!filled} onClick={onStart}>
-        ▶ Start session · {total} min
+        ▶ Start session · {untimed === 0 ? `${total} min` : total === 0 ? 'untimed' : `${total} min + ${untimed} untimed`}
       </button>
 
       <h2 className="shelf-title">Shelf</h2>
@@ -158,8 +177,11 @@ function ExerciseSheet({
 /** Fastest tempo per day played: filled dots clean, hollow dots messy. */
 function TempoChart({ exercise }: { exercise: Exercise }) {
   const days = tempoHistory(exercise);
+  const runs = stageLog(exercise).length;
+  const stage = stageOf(exercise);
+  const atStage = stage ? ` at stage ${stage}` : '';
   if (days.length === 0) {
-    return <p className="muted small">{exercise.log.length > 0 ? `Played ${exercise.log.length}× with no metronome.` : 'No tempo history yet.'}</p>;
+    return <p className="muted small">{runs > 0 ? `Played ${runs}×${atStage} with no metronome.` : `No tempo history${atStage} yet.`}</p>;
   }
   const values = days.flatMap((d) => [d.clean, d.messy]).filter((v): v is number => v !== null);
   if (exercise.goalBpm) values.push(exercise.goalBpm);
@@ -185,6 +207,7 @@ function TempoChart({ exercise }: { exercise: Exercise }) {
         ))}
       </svg>
       <figcaption className="muted small">
+        {stage && `Stage ${stage} · `}
         {best ? `Best clean ${best} bpm` : 'No clean run yet'}
         {exercise.goalBpm && ` · goal ${exercise.goalBpm}`} · since {daysAgo(days[0].d)}
       </figcaption>

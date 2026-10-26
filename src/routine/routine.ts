@@ -17,17 +17,64 @@ export const MINUTES = [5, 10, 15, 20, 30];
 
 export type Progression = 'iiVI' | 'diatonic' | 'vamp';
 
+/** Notes a round draws from. `accidentals` and `spellings` count C♯ and D♭ as two notes. */
+export type NoteSet = 'naturals' | 'accidentals' | 'all' | 'spellings';
+
+export interface FretStage {
+  title: string;
+  /** What to do, from the lesson. */
+  how: string;
+  set: NoteSet;
+  /**
+   * reps: one note at a time with no metronome, three clean runs each, every note twice.
+   * hold: one note at a time on the metronome, until you move on.
+   * pair: two notes, the first going up and the second coming down, until you change them.
+   * round: every note of the set once, in a random order shown up front, a new one each pass, then stop.
+   */
+  play: 'reps' | 'hold' | 'pair' | 'round';
+}
+
+/**
+ * Stages of the fretboard notes exercise: 1–5 from the lesson, 6 and 7 carry stage 5 on to all 12
+ * notes and then to every spelling. Numbered from 1, as in the lesson.
+ */
+export const FRET_STAGES: FretStage[] = [
+  {
+    title: 'One note, no metronome',
+    how: 'Play the note on each string, low to high then high to low. Three times without a mistake, then the next note. All 7, twice.',
+    set: 'naturals',
+    play: 'reps',
+  },
+  { title: 'One note on the beat', how: 'One string per beat, up then down, until it’s clean. Then the next note, until all 7 are clean.', set: 'naturals', play: 'hold' },
+  { title: 'Sharps & flats', how: 'As stage 2 with every sharp and flat. C♯ and D♭ come up separately.', set: 'accidentals', play: 'hold' },
+  { title: 'Two notes', how: 'First note up, second note down, without stopping. Change the pair until it feels easy.', set: 'naturals', play: 'pair' },
+  {
+    title: 'All 7 in a row',
+    how: 'Stage 4 with all 7 naturals: play them in the order shown, a new note each time you reach the last string, without stopping.',
+    set: 'naturals',
+    play: 'round',
+  },
+  { title: 'All 12 in a row', how: 'As stage 5 with all 12 notes, black keys spelled either way.', set: 'all', play: 'round' },
+  { title: 'Every spelling in a row', how: 'As stage 5 with all 17 names: C♯ and D♭ are separate notes.', set: 'spellings', play: 'round' },
+];
+
+export const fretStage = (stage: number) => FRET_STAGES[stage - 1];
+
 export type Prompt =
   /** Timer and metronome only, e.g. working on a song. */
   | { kind: 'none' }
-  /** A random note per pass across the strings, alternating up and down. */
-  | { kind: 'notes'; set: 'naturals' | 'all'; beatsEach: number }
+  /**
+   * Fretboard notes in stages (FRET_STAGES), a note per pass across the strings, alternating up
+   * and down. `bpms` keeps the tempo of the stages you're not on.
+   */
+  | { kind: 'notes'; stage: number; beatsEach: number; bpms: Record<number, number> }
   /** Chords from the home screen's keys, `barsEach` bars per chord. */
   | { kind: 'chords'; progression: Progression; mode: Mode; barsEach: number }
   /** The ii–V–I bebop scale play-along, with its own tempo and settings. */
   | { kind: 'playAlong' };
 
 export type ChordsPrompt = Extract<Prompt, { kind: 'chords' }>;
+export type NotesPrompt = Extract<Prompt, { kind: 'notes' }>;
 
 export interface LogEntry {
   /** Local date, "YYYY-MM-DD". */
@@ -35,6 +82,8 @@ export interface LogEntry {
   /** Tempo played at, or null when the metronome never ran. */
   bpm: number | null;
   clean: boolean;
+  /** Stage played, for staged exercises. */
+  stage?: number;
 }
 
 export interface Exercise {
@@ -47,8 +96,11 @@ export interface Exercise {
   cueOrder: 'turn' | 'random';
   /** Bars per cue; for a notes prompt, notes per cue. */
   cueEvery: number;
+  /** Tempo; for a staged exercise, the current stage's. */
   bpm: number;
   goalBpm: number | null;
+  /** Counts against the slot's minutes. Off for exercises that run until they're clean. */
+  timed: boolean;
   /** Click on 2 and 4 rather than every beat (chords and none prompts). */
   backbeat: boolean;
   /** Piano plays the chords (chords prompts). */
@@ -86,6 +138,7 @@ export function newExercise(id = newExerciseId()): Exercise {
     cueEvery: 4,
     bpm: 60,
     goalBpm: null,
+    timed: true,
     backbeat: false,
     piano: true,
     log: [],
@@ -107,10 +160,11 @@ export function seedRoutine(): Routine {
       ex('fretboard', {
         name: 'Fretboard notes',
         notes:
-          'Frets 1–12, no open strings. Play the note on every string, one per beat: low to high on ↑, high to low on ↓. Move to the next note without stopping.\nWhen 7 naturals are clean at a tempo twice, go up a little. Goal: 80. Then switch to all 12 notes.',
-        prompt: { kind: 'notes', set: 'naturals', beatsEach: 6 },
+          'Frets 1–12, no open strings. Play the note on every string: low to high on ↑, high to low on ↓. Pick the stage at the top.\nRepeat stages 2–5, a little faster each time. Goal: 80. Then stages 6 and 7.\nhttps://www.youtube.com/watch?v=PJddQ6Q0UDo',
+        prompt: { kind: 'notes', stage: 1, beatsEach: 6, bpms: {} },
         bpm: 40,
         goalBpm: 80,
+        timed: false,
       }),
       ex('bebop', {
         name: 'ii–V–I ♭9♭13 bebop scale',
@@ -189,12 +243,18 @@ type Raw = Record<string, unknown>;
 const isObj = (v: unknown): v is Raw => typeof v === 'object' && v !== null && !Array.isArray(v);
 const oneOf = <T>(v: unknown, options: readonly T[], fallback: T): T => (options.includes(v as T) ? (v as T) : fallback);
 const posInt = (v: unknown, fallback: number) => (Number.isInteger(v) && (v as number) > 0 ? (v as number) : fallback);
+const isStage = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 1 && (v as number) <= FRET_STAGES.length;
 
 function cleanPrompt(raw: unknown): Prompt {
   if (!isObj(raw)) return { kind: 'none' };
   switch (raw.kind) {
-    case 'notes':
-      return { kind: 'notes', set: oneOf(raw.set, ['naturals', 'all'] as const, 'naturals'), beatsEach: oneOf(raw.beatsEach, BEATS_EACH, 6) };
+    case 'notes': {
+      // Before stages, the note set was the setting: random naturals is stage 5, all 12 is stage 6.
+      const stage = isStage(raw.stage) ? raw.stage : raw.set === 'all' ? 6 : 5;
+      const bpms: Record<number, number> = {};
+      if (isObj(raw.bpms)) for (const [k, v] of Object.entries(raw.bpms)) if (isStage(Number(k)) && typeof v === 'number') bpms[Number(k)] = clampBpm(v);
+      return { kind: 'notes', stage, beatsEach: oneOf(raw.beatsEach, BEATS_EACH, 6), bpms };
+    }
     case 'chords':
       return {
         kind: 'chords',
@@ -213,24 +273,34 @@ function cleanLog(raw: unknown): LogEntry[] {
   if (!Array.isArray(raw)) return [];
   return raw
     .filter((e): e is Raw => isObj(e) && typeof e.d === 'string' && typeof e.clean === 'boolean')
-    .map((e) => ({ d: e.d as string, bpm: typeof e.bpm === 'number' ? clampBpm(e.bpm) : null, clean: e.clean as boolean }));
+    .map((e) => ({
+      d: e.d as string,
+      bpm: typeof e.bpm === 'number' ? clampBpm(e.bpm) : null,
+      clean: e.clean as boolean,
+      ...(isStage(e.stage) && { stage: e.stage }),
+    }));
 }
 
 function cleanExercise(raw: Raw): Exercise {
   const base = newExercise(raw.id as string);
+  const prompt = cleanPrompt(raw.prompt);
+  let log = cleanLog(raw.log);
+  // Runs logged before stages were added belong to the stage the exercise was on.
+  if (prompt.kind === 'notes') log = log.map((l) => (l.stage ? l : { ...l, stage: prompt.stage }));
   return {
     ...base,
     name: typeof raw.name === 'string' ? raw.name : base.name,
     notes: typeof raw.notes === 'string' ? raw.notes : '',
-    prompt: cleanPrompt(raw.prompt),
+    prompt,
     cues: Array.isArray(raw.cues) ? raw.cues.filter((c): c is string => typeof c === 'string' && c.trim() !== '') : [],
     cueOrder: oneOf(raw.cueOrder, ['turn', 'random'] as const, 'turn'),
     cueEvery: posInt(raw.cueEvery, base.cueEvery),
     bpm: typeof raw.bpm === 'number' ? clampBpm(raw.bpm) : base.bpm,
     goalBpm: typeof raw.goalBpm === 'number' ? clampBpm(raw.goalBpm) : null,
+    timed: raw.timed !== false,
     backbeat: raw.backbeat === true,
     piano: raw.piano !== false,
-    log: cleanLog(raw.log),
+    log,
   };
 }
 
@@ -306,17 +376,40 @@ export function practicedDays(r: Routine): Set<string> {
 
 export const doneOn = (e: Exercise, day: string) => e.log.some((l) => l.d === day);
 
+/** The stage a staged exercise is on. */
+export const stageOf = (e: Exercise): number | undefined => (e.prompt.kind === 'notes' ? e.prompt.stage : undefined);
+
+/** Runs at the current stage; every run for an exercise without stages. */
+export function stageLog(e: Exercise): LogEntry[] {
+  const stage = stageOf(e);
+  return stage === undefined ? e.log : e.log.filter((l) => l.stage === stage);
+}
+
+/** Moves a staged exercise to another stage, keeping each stage's tempo. A new stage starts at 40. */
+export function changeStage(e: Exercise, stage: number): Exercise {
+  const p = e.prompt;
+  if (p.kind !== 'notes' || p.stage === stage || !isStage(stage)) return e;
+  const bpms = { ...p.bpms, [p.stage]: e.bpm };
+  return { ...e, bpm: bpms[stage] ?? BPM_MIN, prompt: { ...p, stage, bpms } };
+}
+
+export function setStage(r: Routine, id: string, stage: number): Routine {
+  const e = findExercise(r, id);
+  return e ? saveExercise(r, changeStage(e, stage)) : r;
+}
+
 /** How much to speed up after clean runs. */
 export const TEMPO_STEP = 4;
 
 /**
- * What to suggest after a run at `bpm`. Two clean runs in a row at that tempo or faster suggest
+ * What to suggest after a run at `bpm` (at the current stage, for a staged exercise). Two clean runs in a row at that tempo or faster suggest
  * going up a step (no further than the goal); a clean run at the goal means the exercise is done.
  */
 export function tempoAdvice(e: Exercise, bpm: number): { suggest: number | null; goalReached: boolean } {
-  const last = e.log.at(-1);
+  const log = stageLog(e);
+  const last = log.at(-1);
   const goalReached = e.goalBpm !== null && !!last?.clean && last.bpm !== null && last.bpm >= e.goalBpm;
-  const recent = e.log.slice(-2);
+  const recent = log.slice(-2);
   const steady = recent.length === 2 && recent.every((l) => l.clean && l.bpm !== null && l.bpm >= bpm);
   const next = Math.min(BPM_MAX, e.goalBpm ?? BPM_MAX, bpm + TEMPO_STEP);
   return { suggest: !goalReached && steady && next > bpm ? next : null, goalReached };
@@ -330,10 +423,10 @@ export interface DayTempo {
   messy: number | null;
 }
 
-/** Per-day tempos for the history chart, oldest first, the last `days` days played. */
+/** Per-day tempos for the history chart (at the current stage), oldest first, the last `days` days played. */
 export function tempoHistory(e: Exercise, days = 30): DayTempo[] {
   const byDay = new Map<string, DayTempo>();
-  for (const l of e.log) {
+  for (const l of stageLog(e)) {
     if (l.bpm === null) continue;
     const day = byDay.get(l.d) ?? { d: l.d, clean: null, messy: null };
     const k = l.clean ? 'clean' : 'messy';

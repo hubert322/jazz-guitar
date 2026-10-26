@@ -1407,6 +1407,35 @@ button.slot:active {
   font-variant-numeric: tabular-nums;
 }
 
+.timer-btn {
+  width: 40px;
+  height: 32px;
+  padding: 0;
+  font-size: 13px;
+}
+
+.timer-time {
+  border: none;
+  background: none;
+  padding: 6px 0;
+  font: inherit;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.slot-timer .link-btn {
+  margin: 0 0 0 auto;
+  padding: 6px 0;
+}
+
+.timer-pick {
+  height: 32px;
+  padding: 0;
+  font-size: 13px;
+  min-width: 0;
+}
+
 .slot-timer .target-track {
   flex: 1;
   overflow: hidden;
@@ -1469,6 +1498,76 @@ button.slot:active {
   font-size: 18px;
   font-weight: 600;
   color: var(--accent);
+}
+
+.note-pair {
+  display: flex;
+  gap: 28px;
+}
+
+.note-pair .note-big {
+  font-size: 72px;
+  transition: opacity 0.15s;
+}
+
+.note-dim {
+  opacity: 0.3;
+}
+
+.note-arrow {
+  font-size: 28px;
+  margin-left: 4px;
+  vertical-align: super;
+}
+
+.stage-seg {
+  gap: 4px;
+}
+
+.stage-pick p {
+  margin: 8px 0 0;
+}
+
+.order {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 12px;
+  padding-top: 8px;
+}
+
+.order-note {
+  font-size: 20px;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+.order-note .note-arrow {
+  font-size: 12px;
+  margin-left: 1px;
+}
+
+.order-note.on {
+  color: var(--accent);
+}
+
+.order-note.done {
+  opacity: 0.35;
+}
+
+.finished p {
+  margin: 4px 0 8px;
+  text-align: center;
+}
+
+.finished-mark {
+  color: var(--good);
+}
+
+.rep-btns {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
 }
 
 .note-beats,

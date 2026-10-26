@@ -11,12 +11,21 @@ Jazz theory drills for guitar, built for short offline sessions on a phone. A we
 
 **ii–V–I play-along** is for playing, not answering: a random ii–V–I in the 4-bar form ii | V | I | I, over a metronome. Play the ♭9♭13 bebop scale of the V (over G7: G A♭ B C D E♭ F F♯) through the ii and V bars, then improvise for the two bars of the I. The next key shows on the line below so you can get ready. Choose which beats click (2 and 4 by default), tempo (40–240, or tap it), major, minor or both, and how many times through each key before it moves on. A piano plays each chord unless you turn it off, and *Peek at scale* shows the scale's notes. The screen stays on while it plays.
 
-**Routine** decides what to practice so you don't have to. *Today's practice* on the home screen holds three slots (Warm-up, Focus, Apply), one exercise each, with a time for each. Everything else waits on the shelf. *Start session* goes through the slots: a timer runs against each slot's minutes (the phone buzzes when time's up), the metronome and prompt for the exercise run below it, and the screen stays on. Tap *Done*, then *Clean* or *Messy*, to log the tempo. After two clean runs at a tempo the app offers to go up 4 bpm; a clean run at the goal tempo offers to send the exercise back to the shelf. Tap any exercise for its notes, its tempo history, and to move it into a slot.
+**Routine** decides what to practice so you don't have to. *Today's practice* on the home screen holds three slots (Warm-up, Focus, Apply), one exercise each, with a time for each. Everything else waits on the shelf. *Start session* goes through the slots: tap ▶ on the timer to count against the slot's minutes, tap again to pause, and ↺ to reset it to 0:00 (the phone buzzes when time's up). The metronome and prompt for the exercise run below it, and the screen stays on. An exercise marked untimed (the fretboard one, which runs until it's clean) has no timer and doesn't count toward the session's minutes. Those are the defaults: during a session, tap the time to change the minutes or remove the timer, or *Add a timer* to an untimed exercise. That change lasts for this session only. Tap *Done*, then *Clean* or *Messy*, to log the tempo. After two clean runs at a tempo the app offers to go up 4 bpm; a clean run at the goal tempo offers to send the exercise back to the shelf. Tap any exercise for its notes, its tempo history, and to move it into a slot.
 
 New exercises take a name, notes, and what to show while playing:
 
 - *Nothing*: just the timer and metronome (songs, transcriptions).
-- *Notes*: a random note per pass across the strings, alternating ↑ and ↓, the 7 naturals or all 12 (black keys spelled either way).
+- *Fretboard notes*: a note per pass across the strings, alternating ↑ and ↓, in stages from [this lesson](https://www.youtube.com/watch?v=PJddQ6Q0UDo). Pick the stage at the top while playing:
+  1. One natural note, no metronome: tap *Clean* three times in a row, then it moves to the next note. All 7, twice.
+  2. One note per beat on the metronome, until you tap *Next note*. On the last note, *All 7 clean* ends the round.
+  3. As 2, with all 10 sharps and flats (C♯ and D♭ come up separately).
+  4. Two notes: the first going up, the second coming down.
+  5. Stage 4 with all 7 naturals: a random order shown up front, played straight through, a new note each pass.
+  6. As 5 with all 12 notes, black keys spelled either way.
+  7. As 5 with all 17 spellings.
+
+  When a stage has been through every note (stages 1–3 and 5–7), tap *Done* to log it, or go through again (a new order, for 5–7). No round puts the same fret twice in a row, so C♯ never comes right after D♭. Each stage keeps its own tempo and tempo history. A clean run at the goal tempo offers the next stage.
 - *Chords*: ii–V–I, the diatonic chords of a key, or a one-chord vamp, in the keys picked on the home screen.
 
 Any exercise can also have cues, one per line (e.g. *C shape*, *A shape*…), shown in turn or at random every few bars. The app starts with exercises from the lesson notes: fretboard notes, the ii–V–I bebop scale and CAGED arpeggios in the slots, and the rest on the shelf.

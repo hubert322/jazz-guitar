@@ -5,7 +5,7 @@ import { cadencesFor, cycleBars } from '../play/cycles';
 import type { Chord } from '../theory/chords';
 import { diatonicChords, keyName, MAJOR_KEYS, MINOR_KEYS } from '../theory/keys';
 import { LETTERS, type Note, note, pc } from '../theory/notes';
-import type { ChordsPrompt } from './routine';
+import type { ChordsPrompt, NoteSet } from './routine';
 
 type Rng = () => number;
 
@@ -30,15 +30,37 @@ const BLACK_KEYS: Note[][] = [
   ['A#', 'Bb'],
 ].map((names) => names.map(note));
 
+/** Each spelling of a black key on its own. */
+const SPELLINGS: Note[][] = BLACK_KEYS.flat().map((n) => [n]);
+
+/** The notes of each set; a note with two spellings comes up as either. */
+const NOTE_SETS: Record<NoteSet, Note[][]> = {
+  naturals: NATURALS,
+  accidentals: SPELLINGS,
+  all: [...NATURALS, ...BLACK_KEYS],
+  spellings: [...NATURALS, ...SPELLINGS],
+};
+
+export const setSize = (set: NoteSet) => NOTE_SETS[set].length;
+
+/** Whether the same fret comes twice running, counting on from `after`. */
+const repeatsFret = (notes: Note[], after: Note | null) =>
+  notes.some((n, i) => {
+    const prev = i === 0 ? after : notes[i - 1];
+    return prev !== null && pc(prev) === pc(n);
+  });
+
 /**
- * One round of notes: every note of the set once, in random order, never starting on `after`
- * (the last note of the previous round) so no note comes twice in a row.
+ * One round of notes: every note of the set once, in random order. No fret comes twice running,
+ * across rounds too (`after` is the last note of the previous round), even as C♯ then D♭.
  */
-export function noteRound(set: 'naturals' | 'all', after: Note | null, rng: Rng = Math.random): Note[] {
-  const pitches = set === 'naturals' ? NATURALS : [...NATURALS, ...BLACK_KEYS];
-  let order = shuffle(pitches, rng);
-  if (after && order.length > 1 && pc(order[0][0]) === pc(after)) order = [...order.slice(1), order[0]];
-  return order.map((spellings) => pick(spellings, rng));
+export function noteRound(set: NoteSet, after: Note | null, rng: Rng = Math.random): Note[] {
+  let round: Note[] = [];
+  for (let tries = 0; tries < 100; tries++) {
+    round = shuffle(NOTE_SETS[set], rng).map((spellings) => pick(spellings, rng));
+    if (!repeatsFret(round, after)) break;
+  }
+  return round;
 }
 
 /** Notes go up the strings first, then alternate. */

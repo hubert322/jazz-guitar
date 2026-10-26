@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import type { Exercise, Progression } from '../routine/routine';
+import { type Exercise, fretStage, type Progression } from '../routine/routine';
 import { dayKey } from '../srs/progress';
 
 const PROGRESSION_LABEL: Record<Progression, string> = { iiVI: 'ii–V–I', diatonic: 'Diatonic chords', vamp: 'Vamp' };
@@ -12,8 +12,10 @@ export function promptSummary(e: Exercise): string {
   switch (p.kind) {
     case 'none':
       return `Timer and metronome${cues}`;
-    case 'notes':
-      return `${p.set === 'naturals' ? '7 natural notes' : 'All 12 notes'}, ${p.beatsEach} beats each${cues}`;
+    case 'notes': {
+      const stage = fretStage(p.stage);
+      return `Stage ${p.stage}: ${stage.title}${stage.play === 'reps' ? '' : `, ${p.beatsEach} beats each`}${cues}`;
+    }
     case 'chords': {
       const mode = p.progression === 'diatonic' ? '' : ` (${MODE_LABEL[p.mode]})`;
       return `${PROGRESSION_LABEL[p.progression]}${mode}, ${p.barsEach} ${p.barsEach === 1 ? 'bar' : 'bars'} each${cues}`;
@@ -31,12 +33,13 @@ export function daysAgo(day: string, now = new Date()): string {
   return `${n} days ago`;
 }
 
-/** "Clean at 48 · yesterday", or nothing yet. */
+/** "Clean at 48 · stage 2 · yesterday", or nothing yet. */
 export function lastRun(e: Exercise): string {
   const last = e.log.at(-1);
   if (!last) return 'Not played yet';
   const how = last.clean ? 'Clean' : 'Messy';
-  return `${last.bpm === null ? how : `${how} at ${last.bpm}`} · ${daysAgo(last.d)}`;
+  const stage = last.stage ? ` · stage ${last.stage}` : '';
+  return `${last.bpm === null ? how : `${how} at ${last.bpm}`}${stage} · ${daysAgo(last.d)}`;
 }
 
 export const doneToday = (e: Exercise) => e.log.some((l) => l.d === dayKey());
