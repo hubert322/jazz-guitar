@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { BARS_PER_CYCLE, type Cycle, cycleBars, type Mode, nextCycle } from '../play/cycles';
+import type { Click } from '../play/metronome';
 import { type PlaySettings, REPEATS } from '../srs/progress';
 import { type Chord, QUALITY_SYMBOL } from '../theory/chords';
 import { keyName } from '../theory/keys';
 import { noteName } from '../theory/notes';
 import { bebopB9b13, plainSpelling } from '../theory/scales';
 import { type Beat, createPlayer } from './metronome';
+import { BeatDots, MetronomeControl } from './MetronomeControl';
 import { VolumeStepper } from './questions';
 import { TempoControl } from './TempoControl';
 import { useWakeLock } from './wakeLock';
@@ -61,7 +63,7 @@ function ChordName({ chord }: { chord: Chord }) {
   );
 }
 
-function CycleLine({ cycle, at, clicks, repeat, next }: { cycle: Cycle; at: Beat | null; clicks: boolean[]; repeat: number; next?: boolean }) {
+function CycleLine({ cycle, at, clicks, repeat, next }: { cycle: Cycle; at: Beat | null; clicks: Click[]; repeat: number; next?: boolean }) {
   const bars = cycleBars(cycle);
   const v = cycle.cadence.chords[1];
   const inBar = at && !at.countIn ? at.bar % BARS_PER_CYCLE : -1;
@@ -71,9 +73,7 @@ function CycleLine({ cycle, at, clicks, repeat, next }: { cycle: Cycle; at: Beat
       <div className="beats">
         {span.map((b) => (
           <div key={b} className="beat-group">
-            {clicks.map((c, j) => (
-              <span key={j} className={`beat ${c ? 'beat-click' : ''} ${b === inBar && j === at!.beat ? 'beat-on' : ''}`} />
-            ))}
+            <BeatDots clicks={clicks} on={b === inBar ? at!.beat : -1} />
           </div>
         ))}
       </div>
@@ -142,9 +142,9 @@ export function PlayAlong({ keys, play, volume, onPlay, onVolume, onExit, embedd
     },
     setBeat,
   );
-  const options = { bpm: play.bpm, clicks: play.clicks, piano: play.piano, volume };
+  const options = { bpm: play.bpm, metronome: play.metronome, piano: play.piano, volume };
 
-  useEffect(() => player.current!.update(options), [play.bpm, play.clicks, play.piano, volume]);
+  useEffect(() => player.current!.update(options), [play.bpm, play.metronome, play.piano, volume]);
   useEffect(() => () => player.current!.stop(), []);
   useWakeLock(running);
 
@@ -201,8 +201,8 @@ export function PlayAlong({ keys, play, volume, onPlay, onVolume, onExit, embedd
         </header>
       )}
 
-      <CycleLine cycle={at(current)} at={running ? beat : null} clicks={play.clicks} repeat={play.repeat} />
-      <CycleLine cycle={at(current + 1)} at={null} clicks={play.clicks} repeat={play.repeat} next />
+      <CycleLine cycle={at(current)} at={running ? beat : null} clicks={play.metronome.clicks} repeat={play.repeat} />
+      <CycleLine cycle={at(current + 1)} at={null} clicks={play.metronome.clicks} repeat={play.repeat} next />
 
       <div className="peek">
         {peek && <Peek cycle={at(current)} />}
@@ -225,22 +225,7 @@ export function PlayAlong({ keys, play, volume, onPlay, onVolume, onExit, embedd
 
         <TempoControl bpm={play.bpm} onBpm={(bpm) => set({ bpm })} />
 
-        <div className="ctl-row">
-          <span className="ctl-label">Click on</span>
-          <div className="seg">
-            {play.clicks.map((on, j) => (
-              <button
-                type="button"
-                key={j}
-                className={`key-chip ${on ? 'on' : ''}`}
-                aria-pressed={on}
-                onClick={() => set({ clicks: play.clicks.map((c, i) => (i === j ? !c : c)) })}
-              >
-                {j + 1}
-              </button>
-            ))}
-          </div>
-        </div>
+        <MetronomeControl metronome={play.metronome} onChange={(metronome) => set({ metronome })} />
 
         <div className="ctl-row">
           <span className="ctl-label">Chords</span>

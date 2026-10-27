@@ -1,4 +1,5 @@
 import type { Mode } from '../play/cycles';
+import { backbeat, type Click, cleanMetronome, type Metronome } from '../play/metronome';
 import { BPM_MAX, BPM_MIN } from '../play/tempo';
 import { cleanRoutine, practicedDays, type Routine, seedRoutine } from '../routine/routine';
 import { KEY_CYCLE } from '../theory/keys';
@@ -33,8 +34,7 @@ export interface Settings {
 /** The ii–V–I play-along. */
 export interface PlaySettings {
   bpm: number;
-  /** Which of beats 1–4 click. */
-  clicks: boolean[];
+  metronome: Metronome;
   /** Piano chord on each bar. */
   piano: boolean;
   mode: Mode;
@@ -45,12 +45,15 @@ export interface PlaySettings {
 export { BPM_MAX, BPM_MIN };
 export const REPEATS = [1, 2, 4];
 
-const defaultPlay = (): PlaySettings => ({ bpm: 100, clicks: [false, true, false, true], piano: true, mode: 'minor', repeat: 1 });
+const defaultPlay = (): PlaySettings => ({ bpm: 100, metronome: backbeat(), piano: true, mode: 'minor', repeat: 1 });
 
-function cleanPlay(raw: Partial<PlaySettings> | undefined): PlaySettings {
-  const play = { ...defaultPlay(), ...raw };
+export function cleanPlay(raw: (Partial<PlaySettings> & { clicks?: unknown }) | undefined): PlaySettings {
+  const { clicks, ...rest } = raw ?? {};
+  const play = { ...defaultPlay(), ...rest };
   if (!(play.bpm >= BPM_MIN && play.bpm <= BPM_MAX)) play.bpm = defaultPlay().bpm;
-  if (!Array.isArray(play.clicks) || play.clicks.length !== 4) play.clicks = defaultPlay().clicks;
+  // Before the shared metronome, the play-along had four on/off beats, beat 1 accented when on.
+  const old = Array.isArray(clicks) && clicks.length === 4 ? { clicks: clicks.map((on, i): Click => (on ? (i === 0 ? 2 : 1) : 0)), countIn: true } : undefined;
+  play.metronome = cleanMetronome(rest.metronome ?? old, defaultPlay().metronome);
   if (!['major', 'minor', 'mix'].includes(play.mode)) play.mode = defaultPlay().mode;
   if (!REPEATS.includes(play.repeat)) play.repeat = 1;
   return play;

@@ -1,26 +1,24 @@
-// The play-along's clock: metronome clicks and piano chords scheduled a little ahead on the
+// The metronome everything plays along with: clicks and piano chords scheduled a little ahead on the
 // audio clock, which keeps time even when the main thread stutters. A timer tops up the schedule
 // and reports each beat to the screen when it's actually heard.
 
+import type { Metronome } from '../play/metronome';
 import { type Chord, chordPitches } from '../theory/chords';
 import { context, loadClick, loadPiano, type PianoSamples, pianoNote, scheduledOutput, sleepAfter } from './sound';
 
 export interface PlayerOptions {
   bpm: number;
-  /** Which beats of the bar click, one flag per beat. */
-  clicks: boolean[];
+  metronome: Metronome;
   /** Piano chord on beat 1 of every bar. */
   piano: boolean;
   volume: number;
-  /** 4 unless set. */
-  beatsPerBar?: number;
 }
 
 export interface Beat {
   bar: number;
   /** 0 up to beats per bar − 1 */
   beat: number;
-  /** The bar of clicks before the form starts. */
+  /** In the bar of clicks before the form starts. */
   countIn: boolean;
 }
 
@@ -28,7 +26,7 @@ export interface Beat {
 const LOOKAHEAD = 0.15;
 const TICK_MS = 25;
 
-/** The woodblock sample, a fifth higher and louder on beat 1. */
+/** The woodblock sample, a fifth higher and louder when accented. */
 function click(sample: AudioBuffer, out: AudioNode, when: number, accent: boolean) {
   const ac = out.context;
   const src = ac.createBufferSource();
@@ -70,7 +68,7 @@ export function createPlayer(chordAt: (bar: number) => Chord | null, onBeat: (b:
     out = output;
     let bar = fromBar;
     let beat = 0;
-    let countIn = true;
+    let countIn = opts.metronome.countIn;
     let t = ac.currentTime + 0.1;
     const queue: (Beat & { time: number })[] = [];
     // What's scheduled now is heard this much later, which on Android Bluetooth can be a lot.
@@ -79,8 +77,11 @@ export function createPlayer(chordAt: (bar: number) => Chord | null, onBeat: (b:
     const tick = () => {
       const o = opts!;
       while (t < ac.currentTime + LOOKAHEAD) {
-        const beats = o.beatsPerBar ?? 4;
-        if (countIn || o.clicks[beat]) click(clickSample, output, t, beat === 0);
+        const { clicks } = o.metronome;
+        const beats = clicks.length;
+        // The count-in clicks every beat, accented where the bar is.
+        const level = countIn ? Math.max(1, clicks[beat] ?? 1) : (clicks[beat] ?? 0);
+        if (level > 0) click(clickSample, output, t, level === 2);
         const chord = !countIn && beat === 0 && o.piano ? chordAt(bar) : null;
         if (chord) strum(samples, output, chord, t, (beats * 60) / o.bpm);
         queue.push({ time: t, bar, beat, countIn });

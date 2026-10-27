@@ -1,7 +1,9 @@
 import { type ReactNode, useState } from 'react';
 import type { Mode } from '../play/cycles';
+import { withBeats } from '../play/metronome';
 import { clampBpm } from '../play/tempo';
-import { BARS_EACH, BEATS_EACH, changeStage, type Exercise, type Progression, type Prompt } from '../routine/routine';
+import { BARS_EACH, changeStage, type Exercise, type Progression, type Prompt } from '../routine/routine';
+import { MetronomeControl } from './MetronomeControl';
 import { StagePicker } from './StagePicker';
 import { TempoControl } from './TempoControl';
 
@@ -21,7 +23,7 @@ const KINDS: { id: Prompt['kind']; label: string }[] = [
 
 const DEFAULT_PROMPT: Record<'none' | 'notes' | 'chords', Prompt> = {
   none: { kind: 'none' },
-  notes: { kind: 'notes', stage: 1, beatsEach: 6, bpms: {} },
+  notes: { kind: 'notes', stage: 1, bpms: {} },
   chords: { kind: 'chords', progression: 'iiVI', mode: 'major', barsEach: 1 },
 };
 
@@ -52,6 +54,13 @@ export function ExerciseEditor({ exercise, isNew, onSave, onDelete, onCancel }: 
     .map((c) => c.trim())
     .filter(Boolean);
   const unit = p.kind === 'notes' ? 'notes' : 'bars';
+
+  /** Fretboard notes take a beat per string, so switching to them starts at 6 beats, and back at 4. */
+  const setKind = (k: keyof typeof DEFAULT_PROMPT) => {
+    if (k === p.kind) return;
+    const beats = k === 'notes' ? 6 : p.kind === 'notes' ? 4 : e.metronome.clicks.length;
+    set({ prompt: DEFAULT_PROMPT[k], metronome: withBeats(e.metronome, beats) });
+  };
 
   const save = () =>
     onSave({ ...e, name: e.name.trim(), notes: e.notes.trim(), cues, goalBpm: e.goalBpm === null || Number.isNaN(e.goalBpm) ? null : clampBpm(e.goalBpm) });
@@ -89,14 +98,11 @@ export function ExerciseEditor({ exercise, isNew, onSave, onDelete, onCancel }: 
           <p className="muted small">The ii–V–I play-along (its tempo and settings are on its own screen).</p>
         ) : (
           <>
-            <Seg label="Show" value={p.kind} options={KINDS} onChange={(k) => k !== p.kind && set({ prompt: DEFAULT_PROMPT[k as keyof typeof DEFAULT_PROMPT] })} />
+            <Seg label="Show" value={p.kind} options={KINDS} onChange={(k) => setKind(k as keyof typeof DEFAULT_PROMPT)} />
             {p.kind === 'notes' && (
-              <>
-                <StagePicker stage={p.stage} onStage={(v) => setE((x) => changeStage(x, v))}>
-                  Each stage keeps its own tempo. You can also change stage while playing.
-                </StagePicker>
-                <Seg label="Beats each" value={p.beatsEach} options={BEATS_EACH.map((n) => ({ id: n, label: n }))} onChange={(v) => setPrompt({ beatsEach: v })} />
-              </>
+              <StagePicker stage={p.stage} onStage={(v) => setE((x) => changeStage(x, v))}>
+                Each stage keeps its own tempo. You can also change stage while playing. A note lasts one bar of the metronome.
+              </StagePicker>
             )}
             {p.kind === 'chords' && (
               <>
@@ -165,6 +171,11 @@ export function ExerciseEditor({ exercise, isNew, onSave, onDelete, onCancel }: 
           <section className="field">
             <span className="field-label">Starting tempo</span>
             <TempoControl bpm={e.bpm} onBpm={(bpm) => set({ bpm })} />
+          </section>
+
+          <section className="field">
+            <span className="field-label">Metronome</span>
+            <MetronomeControl metronome={e.metronome} onChange={(metronome) => set({ metronome })} />
           </section>
         </>
       )}

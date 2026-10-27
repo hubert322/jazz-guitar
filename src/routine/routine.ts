@@ -2,6 +2,7 @@
 // Exercises are data the player writes in the app, so everything read from storage is checked here.
 
 import type { Mode } from '../play/cycles';
+import { backbeat, cleanMetronome, everyBeat, type Metronome } from '../play/metronome';
 import { BPM_MAX, BPM_MIN, clampBpm } from '../play/tempo';
 
 export type SlotId = 'warmup' | 'focus' | 'apply';
@@ -64,10 +65,10 @@ export type Prompt =
   /** Timer and metronome only, e.g. working on a song. */
   | { kind: 'none' }
   /**
-   * Fretboard notes in stages (FRET_STAGES), a note per pass across the strings, alternating up
-   * and down. `bpms` keeps the tempo of the stages you're not on.
+   * Fretboard notes in stages (FRET_STAGES), a note per pass across the strings (a bar of the
+   * metronome), alternating up and down. `bpms` keeps the tempo of the stages you're not on.
    */
-  | { kind: 'notes'; stage: number; beatsEach: number; bpms: Record<number, number> }
+  | { kind: 'notes'; stage: number; bpms: Record<number, number> }
   /** Chords from the home screen's keys, `barsEach` bars per chord. */
   | { kind: 'chords'; progression: Progression; mode: Mode; barsEach: number }
   /** The ii–V–I bebop scale play-along, with its own tempo and settings. */
@@ -101,8 +102,7 @@ export interface Exercise {
   goalBpm: number | null;
   /** Counts against the slot's minutes. Off for exercises that run until they're clean. */
   timed: boolean;
-  /** Click on 2 and 4 rather than every beat (chords and none prompts). */
-  backbeat: boolean;
+  metronome: Metronome;
   /** Piano plays the chords (chords prompts). */
   piano: boolean;
   log: LogEntry[];
@@ -119,7 +119,6 @@ export interface Routine {
   exercises: Exercise[];
 }
 
-export const BEATS_EACH = [4, 6, 8];
 export const BARS_EACH = [1, 2, 4];
 
 const PROGRESSIONS: Progression[] = ['iiVI', 'diatonic', 'vamp'];
@@ -139,7 +138,7 @@ export function newExercise(id = newExerciseId()): Exercise {
     bpm: 60,
     goalBpm: null,
     timed: true,
-    backbeat: false,
+    metronome: everyBeat(4),
     piano: true,
     log: [],
   };
@@ -161,7 +160,8 @@ export function seedRoutine(): Routine {
         name: 'Fretboard notes',
         notes:
           'Frets 1–12, no open strings. Play the note on every string: low to high on ↑, high to low on ↓. Pick the stage at the top.\nRepeat stages 2–5, a little faster each time. Goal: 80. Then stages 6 and 7.\nhttps://www.youtube.com/watch?v=PJddQ6Q0UDo',
-        prompt: { kind: 'notes', stage: 1, beatsEach: 6, bpms: {} },
+        prompt: { kind: 'notes', stage: 1, bpms: {} },
+        metronome: everyBeat(6),
         bpm: 40,
         goalBpm: 80,
         timed: false,
@@ -253,7 +253,7 @@ function cleanPrompt(raw: unknown): Prompt {
       const stage = isStage(raw.stage) ? raw.stage : raw.set === 'all' ? 6 : 5;
       const bpms: Record<number, number> = {};
       if (isObj(raw.bpms)) for (const [k, v] of Object.entries(raw.bpms)) if (isStage(Number(k)) && typeof v === 'number') bpms[Number(k)] = clampBpm(v);
-      return { kind: 'notes', stage, beatsEach: oneOf(raw.beatsEach, BEATS_EACH, 6), bpms };
+      return { kind: 'notes', stage, bpms };
     }
     case 'chords':
       return {
@@ -281,6 +281,12 @@ function cleanLog(raw: unknown): LogEntry[] {
     }));
 }
 
+/** The metronome from before it was shared: every beat (beats each, for notes), or 2 and 4. */
+function oldMetronome(raw: Raw): Metronome {
+  if (isObj(raw.prompt) && raw.prompt.kind === 'notes') return everyBeat(oneOf(raw.prompt.beatsEach, [4, 6, 8], 6));
+  return raw.backbeat === true ? backbeat() : everyBeat(4);
+}
+
 function cleanExercise(raw: Raw): Exercise {
   const base = newExercise(raw.id as string);
   const prompt = cleanPrompt(raw.prompt);
@@ -298,7 +304,7 @@ function cleanExercise(raw: Raw): Exercise {
     bpm: typeof raw.bpm === 'number' ? clampBpm(raw.bpm) : base.bpm,
     goalBpm: typeof raw.goalBpm === 'number' ? clampBpm(raw.goalBpm) : null,
     timed: raw.timed !== false,
-    backbeat: raw.backbeat === true,
+    metronome: cleanMetronome(raw.metronome, oldMetronome(raw)),
     piano: raw.piano !== false,
     log,
   };

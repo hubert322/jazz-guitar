@@ -1,4 +1,5 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
+import type { Click } from '../play/metronome';
 import { chordPass, type ChordBar, goesUp, nextCue, noteRound, setSize } from '../routine/prompts';
 import {
   assign,
@@ -20,6 +21,7 @@ import { type Chord, QUALITY_SYMBOL } from '../theory/chords';
 import { type Note, noteName } from '../theory/notes';
 import { nudge } from './feedback';
 import { type Beat, createPlayer } from './metronome';
+import { BeatDots, MetronomeControl } from './MetronomeControl';
 import { PlayAlong } from './PlayAlong';
 import { StagePicker } from './StagePicker';
 import { VolumeStepper } from './questions';
@@ -448,16 +450,13 @@ function ExerciseRunner({
   const barRef = useRef(bar);
   barRef.current = bar;
 
-  const beatsPerBar = p.kind === 'notes' ? p.beatsEach : 4;
-  const clicks = useMemo(
-    () => Array.from({ length: beatsPerBar }, (_, i) => p.kind === 'notes' || !exercise.backbeat || i % 2 === 1),
-    [beatsPerBar, p.kind, exercise.backbeat],
-  );
-  const options = { bpm: exercise.bpm, clicks, piano: p.kind === 'chords' && exercise.piano, volume, beatsPerBar };
+  const { metronome } = exercise;
+  const { clicks } = metronome;
+  const options = { bpm: exercise.bpm, metronome, piano: p.kind === 'chords' && exercise.piano, volume };
 
   const player = useRef<ReturnType<typeof createPlayer> | null>(null);
   player.current ??= createPlayer((b) => (p.kind === 'chords' ? seq.chordAt(b) : null), setBeat);
-  useEffect(() => player.current!.update(options), [exercise.bpm, clicks, options.piano, volume]);
+  useEffect(() => player.current!.update(options), [exercise.bpm, metronome, options.piano, volume]);
   useEffect(() => () => player.current!.stop(), []);
   useEffect(() => {
     if (running) onRun(exercise.bpm);
@@ -534,7 +533,7 @@ function ExerciseRunner({
 
       {!finished && stage?.play === 'hold' && (
         <>
-          <NotePrompt note={seq.noteAt(held)} up={goesUp(bar)} beats={beatsPerBar} at={at}>
+          <NotePrompt note={seq.noteAt(held)} up={goesUp(bar)} clicks={clicks} at={at}>
             Note {(held % setSize(stage.set)) + 1} of {setSize(stage.set)}
             {(held + 1) % setSize(stage.set) === 0 ? ' · the last one' : ` · then ${noteName(seq.noteAt(held + 1))}`}
           </NotePrompt>
@@ -562,7 +561,7 @@ function ExerciseRunner({
 
       {stage?.play === 'pair' && (
         <>
-          <PairPrompt first={seq.noteAt(2 * held)} second={seq.noteAt(2 * held + 1)} up={goesUp(bar)} beats={beatsPerBar} at={at} />
+          <PairPrompt first={seq.noteAt(2 * held)} second={seq.noteAt(2 * held + 1)} up={goesUp(bar)} clicks={clicks} at={at} />
           <div className="peek-btns">
             <button type="button" className="ghost-btn" onClick={() => setHeld(held + 1)}>
               New pair →
@@ -573,7 +572,7 @@ function ExerciseRunner({
 
       {!finished && stage?.play === 'round' && (
         <>
-          <OrderPrompt notes={Array.from({ length: size }, (_, i) => seq.noteAt(roundStart + i))} pos={bar - roundStart} beats={beatsPerBar} at={at} />
+          <OrderPrompt notes={Array.from({ length: size }, (_, i) => seq.noteAt(roundStart + i))} pos={bar - roundStart} clicks={clicks} at={at} />
           {!running && (
             <div className="peek-btns">
               <button type="button" className="ghost-btn" onClick={() => setHome(roundStart + size)}>
@@ -593,9 +592,7 @@ function ExerciseRunner({
 
       {p.kind === 'none' && (
         <div className="beats free-beats">
-          {clicks.map((c, j) => (
-            <span key={j} className={`beat ${c ? 'beat-click' : ''} ${at && !at.countIn && j === at.beat ? 'beat-on' : ''}`} />
-          ))}
+          <BeatDots clicks={clicks} on={at && !at.countIn ? at.beat : -1} />
         </div>
       )}
 
@@ -620,19 +617,7 @@ function ExerciseRunner({
             {running ? '■ Stop' : '▶ Start'}
           </button>
           <TempoControl bpm={exercise.bpm} onBpm={(bpm) => onPatch({ bpm })} />
-          {p.kind !== 'notes' && (
-            <div className="ctl-row">
-              <span className="ctl-label">Click on</span>
-              <div className="seg">
-                <button type="button" className={`key-chip ${!exercise.backbeat ? 'on' : ''}`} aria-pressed={!exercise.backbeat} onClick={() => onPatch({ backbeat: false })}>
-                  Every beat
-                </button>
-                <button type="button" className={`key-chip ${exercise.backbeat ? 'on' : ''}`} aria-pressed={exercise.backbeat} onClick={() => onPatch({ backbeat: true })}>
-                  2 & 4
-                </button>
-              </div>
-            </div>
-          )}
+          <MetronomeControl metronome={metronome} onChange={(m) => onPatch({ metronome: m })} />
           {p.kind === 'chords' && (
             <label className="toggle">
               <input type="checkbox" checked={exercise.piano} onChange={(e) => onPatch({ piano: e.target.checked })} />
@@ -650,29 +635,27 @@ const REPS = 3;
 /** Times through every note in stage 1. */
 const ROUNDS = 2;
 
-const Beats = ({ beats, at }: { beats: number; at: Beat | null }) => (
+const Beats = ({ clicks, at }: { clicks: Click[]; at: Beat | null }) => (
   <div className="beats note-beats">
-    {Array.from({ length: beats }, (_, j) => (
-      <span key={j} className={`beat beat-click ${at && !at.countIn && j === at.beat ? 'beat-on' : ''}`} />
-    ))}
+    <BeatDots clicks={clicks} on={at && !at.countIn ? at.beat : -1} />
   </div>
 );
 
 const direction = (up: boolean) => (up ? '↑ low E to high E' : '↓ high E to low E');
 
-function NotePrompt({ note, up, beats, at, children }: { note: Note; up: boolean; beats: number; at: Beat | null; children: ReactNode }) {
+function NotePrompt({ note, up, clicks, at, children }: { note: Note; up: boolean; clicks: Click[]; at: Beat | null; children: ReactNode }) {
   return (
     <section className="note-prompt">
       <div className="note-big">{noteName(note)}</div>
       <div className="note-dir">{direction(up)}</div>
-      <Beats beats={beats} at={at} />
+      <Beats clicks={clicks} at={at} />
       <div className="muted small">{children}</div>
     </section>
   );
 }
 
 /** Stage 4: the first note going up, the second coming down. */
-function PairPrompt({ first, second, up, beats, at }: { first: Note; second: Note; up: boolean; beats: number; at: Beat | null }) {
+function PairPrompt({ first, second, up, clicks, at }: { first: Note; second: Note; up: boolean; clicks: Click[]; at: Beat | null }) {
   return (
     <section className="note-prompt">
       <div className="note-pair">
@@ -686,18 +669,18 @@ function PairPrompt({ first, second, up, beats, at }: { first: Note; second: Not
         </span>
       </div>
       <div className="note-dir">{direction(up)}</div>
-      <Beats beats={beats} at={at} />
+      <Beats clicks={clicks} at={at} />
     </section>
   );
 }
 
 /** Stages 5–7: the whole order on show, the note you're on lit, each round starting upward. */
-function OrderPrompt({ notes, pos, beats, at }: { notes: Note[]; pos: number; beats: number; at: Beat | null }) {
+function OrderPrompt({ notes, pos, clicks, at }: { notes: Note[]; pos: number; clicks: Click[]; at: Beat | null }) {
   return (
     <section className="note-prompt">
       <div className="note-big">{noteName(notes[pos])}</div>
       <div className="note-dir">{direction(goesUp(pos))}</div>
-      <Beats beats={beats} at={at} />
+      <Beats clicks={clicks} at={at} />
       <div className="order" aria-label={`Note ${pos + 1} of ${notes.length}`}>
         {notes.map((n, i) => (
           <span key={i} className={`order-note ${i < pos ? 'done' : ''} ${i === pos ? 'on' : ''}`}>
@@ -768,7 +751,7 @@ function RepsPrompt({
 }
 
 /** A pass of chords, with repeated bars of one chord drawn as one box. */
-function PassLine({ start, bars, bar, at, clicks, next }: { start: number; bars: ChordBar[]; bar: number; at: Beat | null; clicks: boolean[]; next?: boolean }) {
+function PassLine({ start, bars, bar, at, clicks, next }: { start: number; bars: ChordBar[]; bar: number; at: Beat | null; clicks: Click[]; next?: boolean }) {
   const spans: { chord: Chord; from: number; count: number }[] = [];
   bars.forEach((b, i) => {
     const last = spans.at(-1);
@@ -797,9 +780,7 @@ function PassLine({ start, bars, bar, at, clicks, next }: { start: number; bars:
               <div className="beats">
                 {Array.from({ length: s.count }, (_, k) => (
                   <div key={k} className="beat-group">
-                    {clicks.map((c, j) => (
-                      <span key={j} className={`beat ${c ? 'beat-click' : ''} ${s.from + k === inBar && j === at!.beat ? 'beat-on' : ''}`} />
-                    ))}
+                    <BeatDots clicks={clicks} on={s.from + k === inBar ? at!.beat : -1} />
                   </div>
                 ))}
               </div>

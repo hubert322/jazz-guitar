@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { emptyProgress, streakDays } from '../srs/progress';
+import { backbeat, everyBeat } from '../play/metronome';
+import { cleanPlay, emptyProgress, streakDays } from '../srs/progress';
 import { chordName } from '../theory/chords';
 import { pc } from '../theory/notes';
 import { chordPass, goesUp, nextCue, noteRound } from './prompts';
@@ -64,7 +65,8 @@ describe('routine storage', () => {
     expect(r.exercises.map((e) => e.name)).toEqual(['A']);
     const a = r.exercises[0];
     expect(a.bpm).toBe(240);
-    expect(a.prompt).toEqual({ kind: 'notes', stage: 5, beatsEach: 6, bpms: {} });
+    expect(a.prompt).toEqual({ kind: 'notes', stage: 5, bpms: {} });
+    expect(a.metronome).toEqual(everyBeat(6));
     expect(a.cues).toEqual(['x']);
     expect(a.log).toEqual([{ d: '2026-10-01', bpm: 50, clean: true, stage: 5 }]);
     expect(a.timed).toBe(true);
@@ -78,9 +80,20 @@ describe('routine storage', () => {
     const load = (prompt: object, log: object[] = []) => cleanRoutine({ exercises: [{ id: 'f', prompt, log }] }).exercises[0];
     expect(load({ kind: 'notes', set: 'all', beatsEach: 6 }).prompt).toMatchObject({ stage: 6 });
     const f = load({ kind: 'notes', set: 'naturals', beatsEach: 8 }, [{ d: '2026-10-01', bpm: 60, clean: true }]);
-    expect(f.prompt).toEqual({ kind: 'notes', stage: 5, beatsEach: 8, bpms: {} });
+    expect(f.prompt).toEqual({ kind: 'notes', stage: 5, bpms: {} });
+    expect(f.metronome.clicks).toHaveLength(8);
     expect(stageLog(f)).toHaveLength(1);
     expect(load({ kind: 'notes', stage: 9, bpms: { 2: 999, 8: 50, x: 1 } }).prompt).toMatchObject({ stage: 5, bpms: { 2: 240 } });
+  });
+
+  it('carries the old click settings over to the metronome', () => {
+    const r = cleanRoutine({ exercises: [{ id: 'a', backbeat: true }, { id: 'b' }, { id: 'c', metronome: { clicks: [2, 0, 1], countIn: false } }, { id: 'd', metronome: { clicks: [5] } }] });
+    expect(r.exercises.map((e) => e.metronome)).toEqual([backbeat(), everyBeat(4), { clicks: [2, 0, 1], countIn: false }, everyBeat(4)]);
+  });
+
+  it('carries the play-along’s old four beats over to the metronome', () => {
+    expect(cleanPlay({ clicks: [true, false, true, false] }).metronome).toEqual({ clicks: [2, 0, 1, 0], countIn: true });
+    expect(cleanPlay(undefined).metronome).toEqual(backbeat());
   });
 
   it('keeps an exercise untimed', () => {

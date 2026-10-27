@@ -4,6 +4,7 @@ import { KEY_CYCLE } from '../theory/keys';
 import { note, noteName } from '../theory/notes';
 import { bebopB9b13, plainSpelling } from '../theory/scales';
 import { cadencesFor, type Cycle, cycleBars, nextCycle } from './cycles';
+import { backbeat, type Click, cleanMetronome, everyBeat, nextClick, withBeats } from './metronome';
 
 const scale = (root: string) => bebopB9b13(note(root)).map((t) => noteName(t.note)).join(' ');
 
@@ -58,5 +59,24 @@ describe('play-along cycles', () => {
   it('keeps going with a single key', () => {
     const a = nextCycle(null, [0], 'minor', 1);
     expect(noteName(nextCycle(a, [0], 'minor', 1).cadence.tonic)).toBe('A');
+  });
+});
+
+describe('metronome', () => {
+  it('cycles a beat through click, accent and silent', () => {
+    expect([nextClick(1), nextClick(2), nextClick(0)]).toEqual([2, 0, 1]);
+  });
+
+  it('keeps the pattern when changing beats, new beats clicking', () => {
+    const m = { clicks: [2, 0, 1, 0] as Click[], countIn: false };
+    expect(withBeats(m, 6)).toEqual({ clicks: [2, 0, 1, 0, 1, 1], countIn: false });
+    expect(withBeats(m, 3).clicks).toEqual([2, 0, 1]);
+    expect(withBeats(m, 0).clicks).toEqual([2]);
+    expect(withBeats(m, 99).clicks).toHaveLength(12);
+  });
+
+  it('repairs what storage held', () => {
+    expect(cleanMetronome({ clicks: [], countIn: false }, everyBeat(4))).toEqual({ clicks: [2, 1, 1, 1], countIn: false });
+    expect(cleanMetronome('junk', backbeat())).toEqual(backbeat());
   });
 });

@@ -1011,6 +1011,7 @@ button.slot:active {
 }
 
 .bar {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -1044,11 +1045,14 @@ button.slot:active {
 
 .beats {
   display: flex;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 6px 10px;
 }
 
+/* Long bars (up to 12 beats) wrap their dots rather than widen the screen. */
 .beat-group {
   display: flex;
+  flex-wrap: wrap;
   gap: 5px;
 }
 
@@ -1061,6 +1065,11 @@ button.slot:active {
 
 .beat-click {
   background: var(--muted);
+}
+
+.beat-accent {
+  background: var(--text);
+  box-shadow: 0 0 0 2px var(--surface-3);
 }
 
 .beat-on {
@@ -1165,6 +1174,44 @@ button.slot:active {
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
   gap: 6px;
+}
+
+.click-seg {
+  grid-auto-flow: row;
+}
+
+.ctl-row .click-chip {
+  position: relative;
+  min-width: 0;
+  padding: 0;
+  color: var(--muted);
+}
+
+.ctl-row .click-chip.on {
+  color: var(--text);
+}
+
+.ctl-row .click-chip.accent {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+
+.accent-mark {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  right: 0;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.click-hint {
+  margin: -4px 0 0 80px;
+}
+
+.key-chip:disabled {
+  opacity: 0.4;
 }
 
 /* --- Routine ------------------------------------------------------------------------------- */

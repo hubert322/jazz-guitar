@@ -14,7 +14,7 @@ export function promptSummary(e: Exercise): string {
       return `Timer and metronome${cues}`;
     case 'notes': {
       const stage = fretStage(p.stage);
-      return `Stage ${p.stage}: ${stage.title}${stage.play === 'reps' ? '' : `, ${p.beatsEach} beats each`}${cues}`;
+      return `Stage ${p.stage}: ${stage.title}${stage.play === 'reps' ? '' : `, ${e.metronome.clicks.length} beats each`}${cues}`;
     }
     case 'chords': {
       const mode = p.progression === 'diatonic' ? '' : ` (${MODE_LABEL[p.mode]})`;
